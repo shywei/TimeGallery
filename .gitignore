@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/.venv/
+.venv/
+env/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+node_modules/
+frontend/dist/
+frontend/.tmp/
+*.tsbuildinfo
+
+# Application Data & Cache (Derivative & local state)
+data/growing_up.db*
+data/thumbnails/*
+data/previews/*
+data/cache/*
+data/logs/*
+data/backups/*
+!data/**/.gitkeep
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+/pics
+/docs/archive
