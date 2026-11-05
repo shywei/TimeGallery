@@ -70,10 +70,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenPhoto }) =
         <div className="flex justify-between items-end mb-4">
           <div>
             <span className="text-[11px] uppercase tracking-widest text-[#8C827A] font-medium">
-              Today in Her Life
+              Daily Memory
             </span>
             <h2 className="font-serif text-3xl font-medium text-[#1A1918] tracking-tight mt-0.5">
-              历史上的今天
+              岁月回响 · 历史上的今天
             </h2>
           </div>
           {memories.length > 1 && (
@@ -132,13 +132,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenPhoto }) =
                   <h3 className="font-serif text-3xl sm:text-4xl font-medium text-[#1A1918]">
                     {currentMemory.photo.photo_date}
                   </h3>
-                  {currentMemory.photo.age && (
+                  {currentMemory.photo.age?.display && (
                     <p className="text-sm font-medium text-[#7D756E]">
-                      当时年龄: {currentMemory.photo.age.display}
+                      {currentMemory.photo.age.display}
                     </p>
                   )}
                   <p className="text-sm text-[#59524B] leading-relaxed pt-2">
-                    {currentMemory.photo.description || '每一天的平凡瞬间，都是成长道路上不可复制的珍贵印记。'}
+                    {currentMemory.photo.description || '每一天的平凡瞬间，都是岁月长卷上不可复制的珍贵印记。'}
                   </p>
                 </div>
               </div>
@@ -182,7 +182,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenPhoto }) =
           </div>
         ) : (
           <div className="bg-white rounded-3xl border border-[#EAE7E1] p-12 text-center text-[#7D756E]">
-            <p className="font-serif text-xl text-[#2C2A29] mb-2">成长画卷刚刚展开</p>
+            <p className="font-serif text-xl text-[#2C2A29] mb-2">时光画卷刚刚展开</p>
             <p className="text-xs max-w-sm mx-auto">
               随着您将更多每日生活照片放入目录并扫描，这里将自动浮现出历史上的今天、去年此时等生动回忆。
             </p>
@@ -211,10 +211,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenPhoto }) =
           </div>
           <div className="pt-4 sm:pt-0">
             <span className="text-xs uppercase tracking-widest text-[#8C827A] font-medium">
-              孩子当前年龄
+              时光里程碑
             </span>
             <div className="font-serif text-2xl font-medium text-[#1A1918] mt-1.5">
-              {overview?.current_age?.display || '成长中'}
+              {overview?.current_age?.display || '岁月漫漫 · 静好如初'}
             </div>
           </div>
         </div>
@@ -280,7 +280,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenPhoto }) =
                 Curated Highlights
               </span>
               <h2 className="font-serif text-2xl font-medium text-[#1A1918]">
-                成长精选
+                珍藏精选
               </h2>
             </div>
             <button
@@ -353,7 +353,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenPhoto }) =
             >
               <Clock className="w-6 h-6 text-[#8C7A6B] mb-3" />
               <h3 className="font-serif text-lg font-medium text-[#1A1918] group-hover:text-[#52443B]">时光河流</h3>
-              <p className="text-xs text-[#7D756E] mt-1">按时间倒序连续流淌，回溯每个月的成长变迁。</p>
+              <p className="text-xs text-[#7D756E] mt-1">按时间倒序连续流淌，回溯每个月的时光变迁。</p>
             </div>
 
             <div
@@ -371,7 +371,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenPhoto }) =
             >
               <FolderHeart className="w-6 h-6 text-[#8C7A6B] mb-3" />
               <h3 className="font-serif text-lg font-medium text-[#1A1918] group-hover:text-[#52443B]">主题合集</h3>
-              <p className="text-xs text-[#7D756E] mt-1">围绕特定时刻、旅行或重要纪念日汇聚成长册。</p>
+              <p className="text-xs text-[#7D756E] mt-1">围绕特定时刻、旅行或重要纪念日汇聚成专属画册。</p>
             </div>
           </div>
         </div>

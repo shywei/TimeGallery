@@ -7,7 +7,7 @@ from backend.app.db.database import get_db
 from backend.app.models.system_config import SystemSetting
 from backend.app.models.photo import Photo
 from backend.app.models.tag import Tag
-from backend.app.services.age_service import calculate_age
+from backend.app.services.age_service import calculate_timeline_milestone, calculate_age
 
 router = APIRouter(prefix="/timeline", tags=["Timeline"])
 
@@ -19,13 +19,22 @@ def get_timeline(
     tag: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    birth_setting = db.query(SystemSetting).filter(SystemSetting.key == "birth_date").first()
-    birth_date = None
-    if birth_setting and birth_setting.value:
+    base_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_date").first()
+    if not base_setting or not base_setting.value:
+        base_setting = db.query(SystemSetting).filter(SystemSetting.key == "birth_date").first()
+    
+    baseline_date = None
+    if base_setting and base_setting.value:
         try:
-            birth_date = date.fromisoformat(birth_setting.value)
+            baseline_date = date.fromisoformat(base_setting.value)
         except Exception:
             pass
+
+    type_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_type").first()
+    b_type = type_setting.value if type_setting and type_setting.value else "BIRTHDAY"
+
+    label_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_label").first()
+    b_label = label_setting.value if label_setting and label_setting.value else ""
 
     query = db.query(Photo).filter(Photo.status == "ACTIVE")
     if tag:
@@ -50,10 +59,10 @@ def get_timeline(
             groups[ym] = []
 
         age_info = None
-        if birth_date:
+        if baseline_date and b_type != "NONE":
             try:
                 p_date = date.fromisoformat(p.photo_date)
-                age_info = calculate_age(birth_date, p_date)
+                age_info = calculate_timeline_milestone(baseline_date, p_date, baseline_type=b_type, custom_label=b_label)
             except Exception:
                 pass
 

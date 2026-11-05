@@ -16,11 +16,28 @@ logger = setup_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initializing Growing Up backend...")
+    logger.info(f"Initializing {settings.app_name} backend...")
     init_db()
     logger.info("Database schema initialized.")
+    # Reset any stale scan jobs left over from a previous crash/restart
+    try:
+        from backend.app.db.database import SessionLocal
+        from backend.app.models.scan_job import ScanJob
+        from backend.app.core.time_utils import get_beijing_now_iso
+        with SessionLocal() as db:
+            db.query(ScanJob).filter(ScanJob.status.in_(["RUNNING", "PENDING"])).update(
+                {
+                    "status": "FAILED",
+                    "message": "Scan aborted due to server restart.",
+                    "finished_at": get_beijing_now_iso(),
+                },
+                synchronize_session=False,
+            )
+            db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to reset stale scan jobs on startup: {e}")
     yield
-    logger.info("Growing Up backend shutting down.")
+    logger.info(f"{settings.app_name} backend shutting down.")
 
 app = FastAPI(
     title=settings.app_name,

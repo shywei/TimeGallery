@@ -22,9 +22,13 @@ frontend/.tmp/
 data/growing_up.db*
 data/thumbnails/*
 data/previews/*
+data/moment_thumbs/*
+data/moment_previews/*
 data/cache/*
 data/logs/*
 data/backups/*
+.trash/
+**/.trash/
 !data/**/.gitkeep
 
 # IDE & OS

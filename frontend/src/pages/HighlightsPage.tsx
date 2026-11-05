@@ -44,7 +44,7 @@ export const HighlightsPage: React.FC<HighlightsPageProps> = ({ onOpenPhoto, ini
             Curated Memories
           </span>
           <h1 className="font-serif text-3xl font-medium text-[#1A1918]">
-            成长精选
+            珍藏精选
           </h1>
           <p className="text-xs text-[#7D756E] mt-1">
             由您人工挑选的闪亮回忆，{selectedTag ? `当前正在筛选 #${selectedTag} 标签下的照片。` : `共收录了 ${highlights.length} 张精彩瞬间。`}

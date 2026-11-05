@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { api } from '../services/api'
 import type { DayViewData, WeekViewData, MonthCalendarData, MonthPhotoWallData } from '../types/calendar'
+import { MomentDetailModal } from '../components/moment/MomentDetailModal'
 
 type CalendarViewMode = 'day' | 'week' | 'month'
 type MonthLayoutMode = 'calendar' | 'wall'
@@ -38,6 +39,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
   const [currentDate, setCurrentDate] = useState(initialDate || todayStr)
   const [viewMode, setViewMode] = useState<CalendarViewMode>(initialView)
   const [monthLayout, setMonthLayout] = useState<MonthLayoutMode>('calendar')
+  const [selectedMomentDate, setSelectedMomentDate] = useState<string | null>(null)
 
   // Quick jump input state
   const [jumpInput, setJumpInput] = useState('')
@@ -315,10 +317,17 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             <div className="bg-white border border-[#EAE7E1] rounded-3xl p-8 shadow-sm max-w-3xl mx-auto">
               <div className="flex justify-between items-center border-b border-[#ECE7DE] pb-4 mb-6">
                 <div>
-                  <span className="text-[11px] uppercase tracking-wider text-[#8C827A] font-medium">
-                    自然日记录
-                  </span>
-                  <h2 className="font-serif text-3xl font-medium text-[#1A1918]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] uppercase tracking-wider text-[#8C827A] font-medium">
+                      自然日记录
+                    </span>
+                    {dayData.has_moment && (
+                      <span className="text-[10px] uppercase tracking-wider text-amber-800 font-semibold px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200">
+                        今日含特别时刻
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="font-serif text-3xl font-medium text-[#1A1918] mt-0.5">
                     {dayData.date}
                   </h2>
                 </div>
@@ -343,13 +352,89 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                   </div>
                   <div className="p-4 bg-[#FCFBF9] rounded-2xl border border-[#EDE8E0] flex justify-between items-center">
                     <p className="text-sm text-[#5C534B] italic">
-                      {dayData.photo.description || '这一天留下了珍贵的成长印记。'}
+                      {dayData.photo.description || '这一天留下了珍贵的时光印记。'}
                     </p>
                     <button
                       onClick={() => onOpenPhoto(dayData.photo!.id)}
-                      className="px-4 py-2 rounded-xl bg-[#2C2622] text-white text-xs font-medium hover:bg-[#3D352F] transition-colors shrink-0"
+                      className="px-4 py-2 rounded-xl bg-[#2C2622] text-white text-xs font-medium hover:bg-[#3D352F] transition-colors shrink-0 cursor-pointer"
                     >
                       查看档案详情
+                    </button>
+                  </div>
+
+                  {/* If this day also has a special moment */}
+                  {dayData.has_moment && dayData.moment && (
+                    <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-[#FAF8F5] border border-amber-200/80 flex items-center justify-between gap-4 shadow-xs">
+                      <div className="flex items-center gap-3">
+                        {dayData.moment.cover_url && (
+                          <img
+                            src={dayData.moment.cover_url}
+                            alt=""
+                            className="w-16 h-16 rounded-xl object-cover border border-amber-200/60 shadow-xs"
+                          />
+                        )}
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-semibold text-amber-900 flex items-center gap-1">
+                              <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                              特别时刻画册
+                            </span>
+                            <span className="text-[10px] text-amber-800/80 font-mono">
+                              ({dayData.moment.photo_count} 图 · {dayData.moment.video_count} 视频)
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#5C534B] mt-0.5">
+                            {dayData.moment.title}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedMomentDate(dayData.date)}
+                        className="px-4 py-2 rounded-xl bg-[#2C2622] text-white text-xs font-medium hover:bg-[#3D352F] transition-colors shrink-0 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span>浏览特别画册</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : dayData.has_moment && dayData.moment ? (
+                /* No daily single photo, but this date has a special moment */
+                <div className="space-y-4">
+                  <div
+                    onClick={() => setSelectedMomentDate(dayData.date)}
+                    className="bg-[#171615] rounded-2xl overflow-hidden cursor-pointer group flex items-center justify-center p-2 min-h-[380px] relative"
+                  >
+                    {dayData.moment.cover_url ? (
+                      <img
+                        src={dayData.moment.cover_url}
+                        alt={dayData.date}
+                        className="max-h-[550px] w-full object-contain rounded-lg group-hover:scale-[1.01] transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-80 flex flex-col items-center justify-center text-amber-200">
+                        <Sparkles className="w-12 h-12 mb-2" />
+                        <span className="text-sm">特别时刻画册</span>
+                      </div>
+                    )}
+                    <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-amber-300 text-xs font-medium flex items-center gap-1.5 shadow-md">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>特别时刻画册 ({dayData.moment.photo_count} 图 · {dayData.moment.video_count} 视频)</span>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-gradient-to-r from-amber-50/70 to-[#FCFBF9] rounded-2xl border border-amber-200/80 flex justify-between items-center">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-amber-800 font-medium">今日特别时刻</p>
+                      <p className="text-sm text-[#2C2A29] font-serif font-medium mt-0.5">
+                        {dayData.moment.title}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setSelectedMomentDate(dayData.date)}
+                      className="px-4 py-2 rounded-xl bg-[#2C2622] text-white text-xs font-medium hover:bg-[#3D352F] transition-colors shrink-0 cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      <span>查看画册与视频</span>
                     </button>
                   </div>
                 </div>
@@ -357,7 +442,7 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                 <div className="text-center py-16 border-2 border-dashed border-[#EAE5DC] rounded-2xl">
                   <p className="font-serif text-xl text-[#2C2A29] mb-1">这一天没有照片记录</p>
                   <p className="text-xs text-[#8C827A] max-w-sm mx-auto">
-                    成长中的空白同样也是生命自然舒展的一部分。您可以点击下方前后箭头浏览相邻日期。
+                    岁月里的留白同样也是真实生活的一部分。您可以点击下方前后箭头浏览相邻日期。
                   </p>
                 </div>
               )}
@@ -389,9 +474,19 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                         <span className="text-[11px] font-medium text-[#7D756E]">
                           {dayNames[d.day_of_week - 1]}
                         </span>
-                        <span className="text-xs font-mono font-medium text-[#1A1918]">
-                          {d.day_number}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {d.has_moment && (
+                            <span
+                              className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 font-medium"
+                              title="含特别时刻画册"
+                            >
+                              时刻
+                            </span>
+                          )}
+                          <span className="text-xs font-mono font-medium text-[#1A1918]">
+                            {d.day_number}
+                          </span>
+                        </div>
                       </div>
 
                       {d.has_photo && d.photo ? (
@@ -405,6 +500,22 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             loading="lazy"
                           />
+                        </div>
+                      ) : d.has_moment && d.moment?.cover_url ? (
+                        <div
+                          onClick={() => setSelectedMomentDate(d.date)}
+                          className="aspect-square rounded-xl bg-[#2C2622] overflow-hidden cursor-pointer group mb-2 relative ring-1.5 ring-amber-300"
+                          title={`特别时刻: ${d.moment.photo_count}图 ${d.moment.video_count}视频`}
+                        >
+                          <img
+                            src={d.moment.cover_url}
+                            alt=""
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            loading="lazy"
+                          />
+                          <span className="absolute bottom-1 right-1 text-[8px] bg-black/75 text-amber-300 px-1 py-0.2 rounded-full font-medium">
+                            时刻
+                          </span>
                         </div>
                       ) : (
                         <div
@@ -471,9 +582,17 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                       <span className="text-xs font-mono font-medium">
                         {cell.day_number}
                       </span>
-                      {cell.has_photo && cell.photo?.is_highlight === 1 && (
-                        <Sparkles className="w-3 h-3 text-amber-500" />
-                      )}
+                      <div className="flex items-center gap-1">
+                        {cell.has_moment && (
+                          <span
+                            className="w-2 h-2 rounded-full bg-amber-500 ring-2 ring-amber-200"
+                            title={`特别时刻: ${cell.moment?.photo_count || 0}图 ${cell.moment?.video_count || 0}视频`}
+                          />
+                        )}
+                        {cell.has_photo && cell.photo?.is_highlight === 1 && (
+                          <Sparkles className="w-3 h-3 text-amber-500" />
+                        )}
+                      </div>
                     </div>
 
                     {cell.has_photo && cell.photo ? (
@@ -487,6 +606,22 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
                         />
+                      </div>
+                    ) : cell.has_moment && cell.moment?.cover_url ? (
+                      <div
+                        onClick={() => setSelectedMomentDate(cell.date)}
+                        className="aspect-square rounded-xl bg-[#2C2622] overflow-hidden cursor-pointer group my-1 relative ring-1.5 ring-amber-300"
+                        title={`特别时刻: ${cell.moment.photo_count}图 ${cell.moment.video_count}视频`}
+                      >
+                        <img
+                          src={cell.moment.cover_url}
+                          alt=""
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                        <span className="absolute bottom-1 right-1 text-[8px] bg-black/75 text-amber-300 px-1 py-0.2 rounded-full font-medium">
+                          时刻
+                        </span>
                       </div>
                     ) : (
                       <div
@@ -535,7 +670,13 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                   {monthWallData.items.map((item) => (
                     <div
                       key={item.id}
-                      onClick={() => onOpenPhoto(item.id)}
+                      onClick={() => {
+                        if (item.id < 0) {
+                          setSelectedMomentDate(item.photo_date)
+                        } else {
+                          onOpenPhoto(item.id)
+                        }
+                      }}
                       className="group cursor-pointer bg-white rounded-2xl border border-[#EAE7E1] p-2 hover:shadow-md transition-all flex flex-col justify-between"
                     >
                       <div className="rounded-xl bg-[#EFECE6] overflow-hidden mb-2 relative">
@@ -551,6 +692,11 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
                             <Sparkles className="w-3 h-3" />
                           </div>
                         )}
+                        {item.has_moment && (
+                          <div className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded-md bg-amber-500/90 text-white text-[10px] font-medium backdrop-blur-xs shadow-xs">
+                            特别时刻
+                          </div>
+                        )}
                       </div>
                       <div className="px-1 text-xs font-mono font-medium text-[#1A1918]">
                         {item.photo_date}
@@ -562,6 +708,15 @@ export const CalendarPage: React.FC<CalendarPageProps> = ({
             </div>
           )}
         </>
+      )}
+
+      {/* Moment Detail Modal */}
+      {selectedMomentDate && (
+        <MomentDetailModal
+          momentDateOrId={selectedMomentDate}
+          onClose={() => setSelectedMomentDate(null)}
+          onOpenPhoto={onOpenPhoto}
+        />
       )}
     </div>
   )

@@ -4,6 +4,7 @@ import { api } from '../../services/api'
 import type { PhotoDetail } from '../../types/photo'
 import type { CollectionItem } from '../../types/collection'
 import { ImmersiveViewer } from './ImmersiveViewer'
+import { MomentDetailModal } from '../moment/MomentDetailModal'
 
 interface PhotoDetailModalProps {
   photoId: number
@@ -42,6 +43,7 @@ export const PhotoDetailModal: React.FC<PhotoDetailModalProps> = ({
   const [allCollections, setAllCollections] = useState<CollectionItem[]>([])
   const [showColPicker, setShowColPicker] = useState(false)
   const [togglingColId, setTogglingColId] = useState<number | null>(null)
+  const [showMomentModal, setShowMomentModal] = useState(false)
 
   const fetchCollections = () => {
     api.getCollections()
@@ -306,7 +308,7 @@ export const PhotoDetailModal: React.FC<PhotoDetailModalProps> = ({
                             ? 'bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 shadow-2xs'
                             : 'bg-white text-[#6E665D] border border-[#DDD7CD] hover:border-[#8C7A6B] hover:text-[#1A1918] hover:bg-[#FAF8F5]'
                         }`}
-                        title={detail.is_highlight === 1 ? '点击取消精选' : '点击将此照片设为成长精选'}
+                        title={detail.is_highlight === 1 ? '点击取消精选' : '点击将此照片设为精选瞬间'}
                       >
                         {togglingHighlight ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin text-[#8C7A6B]" />
@@ -357,7 +359,7 @@ export const PhotoDetailModal: React.FC<PhotoDetailModalProps> = ({
                         }}
                         rows={3}
                         className="w-full p-3 bg-white border border-[#ECE7DE] focus:border-[#8C7A6B] rounded-xl text-xs text-[#2C2A29] leading-relaxed resize-none focus:outline-none focus:ring-1 focus:ring-[#8C7A6B]/30 placeholder:text-[#BBB4A9] transition-all shadow-2xs"
-                        placeholder="记录这一天的成长故事... (修改后点击“更新故事”或按 Ctrl+Enter 保存)"
+                        placeholder="记录这一天的时光故事... (修改后点击“更新故事”或按 Ctrl+Enter 保存)"
                       />
                     </div>
 
@@ -456,6 +458,32 @@ export const PhotoDetailModal: React.FC<PhotoDetailModalProps> = ({
                         </div>
                       )}
                     </div>
+
+                    {/* Special Moment / 特别时刻入口 */}
+                    {detail.has_moment && detail.moment && (
+                      <div className="p-3.5 bg-gradient-to-r from-amber-50/80 to-[#FAF8F5] border border-amber-200/80 rounded-2xl shadow-2xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-amber-900 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                            今日特别时刻
+                          </span>
+                          <span className="text-[10px] text-amber-800/80 font-mono">
+                            {detail.moment.photo_count} 图 · {detail.moment.video_count} 视频
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#5C534B]">
+                          这一天留下了珍贵的专属画册（{detail.moment.title}）。
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowMomentModal(true)}
+                          className="w-full py-2 px-3 rounded-xl bg-[#2C2622] hover:bg-[#3D352F] text-white text-xs font-medium transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                          <span>查看特别时刻画册 ({detail.moment.photo_count + detail.moment.video_count})</span>
+                        </button>
+                      </div>
+                    )}
 
                     {/* Theme Collections / 主题合集 */}
                     <div className="pt-1">
@@ -590,6 +618,15 @@ export const PhotoDetailModal: React.FC<PhotoDetailModalProps> = ({
           </>
         )}
       </div>
+
+      {/* Special Moment Modal */}
+      {showMomentModal && detail && (
+        <MomentDetailModal
+          momentDateOrId={detail.photo_date}
+          onClose={() => setShowMomentModal(false)}
+          onOpenPhoto={onSelectPhoto}
+        />
+      )}
     </div>
   )
 }

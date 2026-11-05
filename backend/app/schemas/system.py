@@ -13,6 +13,9 @@ class SystemStatusResponse(BaseModel):
 class SystemConfigResponse(BaseModel):
     app_name: str
     birth_date: Optional[str] = None
+    baseline_type: str = "BIRTHDAY"
+    baseline_date: Optional[str] = None
+    baseline_label: Optional[str] = None
     photo_root: Optional[str] = None
     data_root: str
     thumbnail_size: int
@@ -20,11 +23,17 @@ class SystemConfigResponse(BaseModel):
     first_setup_completed: bool
 
 class SetupRequest(BaseModel):
-    birth_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     photo_root: str = Field(..., min_length=1)
+    birth_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    baseline_type: str = "BIRTHDAY"
+    baseline_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    baseline_label: Optional[str] = None
 
 class SystemConfigUpdateRequest(BaseModel):
     birth_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    baseline_type: Optional[str] = None
+    baseline_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    baseline_label: Optional[str] = None
     photo_root: Optional[str] = None
     thumbnail_size: Optional[int] = Field(None, ge=120, le=1080)
     preview_size: Optional[int] = Field(None, ge=800, le=4096)

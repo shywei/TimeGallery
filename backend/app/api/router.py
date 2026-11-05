@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from backend.app.api.endpoints import (
-    system, scanner, photos, calendar, timeline, home, memories, highlights, collections, backup, tags
+    system, scanner, photos, calendar, timeline, home, memories, highlights, collections, backup, tags, moments, content_mgmt
 )
 
 api_router = APIRouter(prefix="/api")
@@ -15,3 +15,5 @@ api_router.include_router(highlights.router)
 api_router.include_router(collections.router)
 api_router.include_router(backup.router)
 api_router.include_router(tags.router)
+api_router.include_router(moments.router)
+api_router.include_router(content_mgmt.router)

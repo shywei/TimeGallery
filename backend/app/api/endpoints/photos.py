@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Request, Response
 from fastapi.responses import FileResponse
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func, text
 from sqlalchemy.orm import Session
 
 from backend.app.db.database import get_db
@@ -13,6 +13,7 @@ from backend.app.models.system_config import SystemSetting
 from backend.app.models.photo import Photo
 from backend.app.models.tag import Tag
 from backend.app.models.collection import Collection, CollectionPhoto
+from backend.app.models.moment import Moment
 from backend.app.schemas.photo import (
     PhotoListResponse,
     PhotoListItem,
@@ -25,7 +26,7 @@ from backend.app.services.image_service import (
     get_or_create_thumbnail,
     get_or_create_preview
 )
-from backend.app.services.age_service import calculate_age
+from backend.app.services.age_service import calculate_timeline_milestone, calculate_age
 
 router = APIRouter(prefix="/photos", tags=["Photos"])
 
@@ -49,17 +50,30 @@ def get_photo_root(db: Session) -> Path:
 def list_photos(
     start_date: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     end_date: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    year: Optional[int] = Query(None, ge=2000, le=2099),
+    year: Optional[int] = Query(None, ge=1900, le=2100),
     month: Optional[int] = Query(None, ge=1, le=12),
+    search: Optional[str] = Query(None, description="Search keyword for date, description or filename"),
     is_highlight: Optional[bool] = None,
     tag_id: Optional[int] = None,
     collection_id: Optional[int] = None,
     page: int = Query(1, ge=1),
-    page_size: int = Query(30, ge=1, le=200),
+    page_size: int = Query(40, ge=1, le=200),
     sort: str = Query("desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db)
 ):
     query = db.query(Photo).filter(Photo.status == "ACTIVE")
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        clean_term = f"%{search.strip().replace('-', '').replace(' ', '')}%"
+        query = query.filter(
+            or_(
+                Photo.photo_date.like(term),
+                func.replace(Photo.photo_date, "-", "").like(clean_term),
+                Photo.description.like(term),
+                Photo.filename.like(term)
+            )
+        )
 
     if start_date:
         query = query.filter(Photo.photo_date >= start_date)
@@ -117,21 +131,42 @@ def list_photos(
         items=items
     )
 
+@router.get("/years", response_model=List[str])
+def get_photo_years(db: Session = Depends(get_db)):
+    """Return distinct years present in active photos in descending order."""
+    results = (
+        db.query(func.substr(Photo.photo_date, 1, 4).label("yr"))
+        .filter(Photo.status == "ACTIVE")
+        .distinct()
+        .order_by(text("yr DESC"))
+        .all()
+    )
+    return [r[0] for r in results if r[0]]
+
 @router.get("/{photo_id}", response_model=PhotoDetailResponse)
 def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
     photo = db.query(Photo).filter(Photo.id == photo_id).first()
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found.")
 
-    # Calculate child's age on photo date
+    # Calculate milestone/age on photo date
     age_info = None
     b_date = None
-    birth_setting = db.query(SystemSetting).filter(SystemSetting.key == "birth_date").first()
-    if birth_setting and birth_setting.value:
+    base_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_date").first()
+    if not base_setting or not base_setting.value:
+        base_setting = db.query(SystemSetting).filter(SystemSetting.key == "birth_date").first()
+    
+    type_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_type").first()
+    b_type = type_setting.value if type_setting and type_setting.value else "BIRTHDAY"
+    
+    label_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_label").first()
+    b_label = label_setting.value if label_setting and label_setting.value else ""
+
+    if base_setting and base_setting.value and b_type != "NONE":
         try:
-            b_date = date.fromisoformat(birth_setting.value)
+            b_date = date.fromisoformat(base_setting.value)
             p_date = date.fromisoformat(photo.photo_date)
-            age_info = calculate_age(b_date, p_date)
+            age_info = calculate_timeline_milestone(b_date, p_date, baseline_type=b_type, custom_label=b_label)
         except Exception:
             pass
 
@@ -156,10 +191,10 @@ def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
             title = f"{op_year} 年的今天"
 
         op_age_display = None
-        if b_date:
+        if b_date and b_type != "NONE":
             try:
                 op_d = date.fromisoformat(op.photo_date)
-                op_age = calculate_age(b_date, op_d)
+                op_age = calculate_timeline_milestone(b_date, op_d, baseline_type=b_type, custom_label=b_label)
                 op_age_display = op_age.get("display")
             except Exception:
                 pass
@@ -194,6 +229,17 @@ def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
         )
     ).order_by(Photo.photo_date.asc(), Photo.id.asc()).first()
 
+    # Check if there is a special moment on this date
+    moment = db.query(Moment).filter(Moment.moment_date == photo.photo_date).first()
+    moment_info = None
+    if moment:
+        moment_info = {
+            "id": moment.id,
+            "title": moment.title,
+            "photo_count": moment.photo_count,
+            "video_count": moment.video_count
+        }
+
     return PhotoDetailResponse(
         id=photo.id,
         photo_date=photo.photo_date,
@@ -215,6 +261,8 @@ def get_photo_detail(photo_id: int, db: Session = Depends(get_db)):
         tags=[TagResponse(id=t.id, name=t.name) for t in photo.tags],
         collections=[{"id": c.id, "name": c.name} for c in photo.collections],
         on_this_day_photos=on_this_day_items,
+        has_moment=moment_info is not None,
+        moment=moment_info,
         prev_photo_id=prev_photo.id if prev_photo else None,
         next_photo_id=next_photo.id if next_photo else None,
         prev_date=prev_photo.photo_date if prev_photo else None,

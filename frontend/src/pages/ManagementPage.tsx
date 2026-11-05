@@ -14,16 +14,19 @@ import {
   ChevronDown,
   ChevronUp,
   Copy,
-  Check
+  Check,
+  ImagePlus
 } from 'lucide-react'
 import { api } from '../services/api'
 import type { ScanJob, ScanIssue, MissingDatesSummary } from '../types/scanner'
 import type { SystemConfig } from '../types/system'
+import { ContentManagementTab } from '../components/management/ContentManagementTab'
 
-type MgmtTab = 'scanner' | 'issues' | 'settings' | 'backup'
+type MgmtTab = 'content' | 'scanner' | 'issues' | 'settings' | 'backup'
 
 export const ManagementPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<MgmtTab>('scanner')
+  const [activeTab, setActiveTab] = useState<MgmtTab>('content')
+  const [contentTargetDate, setContentTargetDate] = useState<string | undefined>(undefined)
 
   // Scanner State
   const [scanJobs, setScanJobs] = useState<ScanJob[]>([])
@@ -40,7 +43,9 @@ export const ManagementPage: React.FC = () => {
   // Settings State
   const [config, setConfig] = useState<SystemConfig | null>(null)
   const [savingConfig, setSavingConfig] = useState(false)
-  const [birthDateInput, setBirthDateInput] = useState('')
+  const [baselineTypeInput, setBaselineTypeInput] = useState<string>('BIRTHDAY')
+  const [baselineDateInput, setBaselineDateInput] = useState('')
+  const [baselineLabelInput, setBaselineLabelInput] = useState('')
   const [photoRootInput, setPhotoRootInput] = useState('')
   const [configSuccess, setConfigSuccess] = useState(false)
 
@@ -78,7 +83,9 @@ export const ManagementPage: React.FC = () => {
   const fetchConfigData = () => {
     api.getSystemConfig().then((cfg) => {
       setConfig(cfg)
-      setBirthDateInput(cfg.birth_date || '')
+      setBaselineTypeInput(cfg.baseline_type || 'BIRTHDAY')
+      setBaselineDateInput(cfg.baseline_date || cfg.birth_date || '')
+      setBaselineLabelInput(cfg.baseline_label || '')
       setPhotoRootInput(cfg.photo_root || '')
     })
   }
@@ -152,7 +159,10 @@ export const ManagementPage: React.FC = () => {
     setConfigSuccess(false)
     try {
       await api.updateSystemConfig({
-        birth_date: birthDateInput.trim() || undefined,
+        baseline_type: baselineTypeInput,
+        baseline_date: baselineTypeInput !== 'NONE' ? (baselineDateInput.trim() || undefined) : undefined,
+        baseline_label: baselineLabelInput.trim() || undefined,
+        birth_date: baselineDateInput.trim() || undefined,
         photo_root: photoRootInput.trim() || undefined
       })
       setConfigSuccess(true)
@@ -208,10 +218,22 @@ export const ManagementPage: React.FC = () => {
         </p>
 
         {/* Tab Switcher */}
-        <div className="flex gap-2 pt-6">
+        <div className="flex gap-2 pt-6 flex-wrap">
+          <button
+            onClick={() => setActiveTab('content')}
+            className={`px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+              activeTab === 'content'
+                ? 'bg-[#2C2622] text-white shadow-xs'
+                : 'bg-white border border-[#EAE7E1] text-[#6E665D] hover:bg-[#FAF8F5]'
+            }`}
+          >
+            <ImagePlus className="w-3.5 h-3.5" />
+            档案内容维护 (主图/时刻/回收站)
+          </button>
+
           <button
             onClick={() => setActiveTab('scanner')}
-            className={`px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors ${
+            className={`px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'scanner'
                 ? 'bg-[#2C2622] text-white shadow-xs'
                 : 'bg-white border border-[#EAE7E1] text-[#6E665D] hover:bg-[#FAF8F5]'
@@ -223,7 +245,7 @@ export const ManagementPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('issues')}
-            className={`px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors ${
+            className={`px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'issues'
                 ? 'bg-[#2C2622] text-white shadow-xs'
                 : 'bg-white border border-[#EAE7E1] text-[#6E665D] hover:bg-[#FAF8F5]'
@@ -235,7 +257,7 @@ export const ManagementPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors ${
+            className={`px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'settings'
                 ? 'bg-[#2C2622] text-white shadow-xs'
                 : 'bg-white border border-[#EAE7E1] text-[#6E665D] hover:bg-[#FAF8F5]'
@@ -247,7 +269,7 @@ export const ManagementPage: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('backup')}
-            className={`px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors ${
+            className={`px-4 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
               activeTab === 'backup'
                 ? 'bg-[#2C2622] text-white shadow-xs'
                 : 'bg-white border border-[#EAE7E1] text-[#6E665D] hover:bg-[#FAF8F5]'
@@ -258,6 +280,11 @@ export const ManagementPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Tab 0: Content Management (Upload / Replace / Delete / Trash) */}
+      {activeTab === 'content' && (
+        <ContentManagementTab initialDate={contentTargetDate} />
+      )}
 
       {/* Tab 1: Scanner */}
       {activeTab === 'scanner' && (
@@ -392,12 +419,18 @@ export const ManagementPage: React.FC = () => {
                       </div>
                       <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pt-1">
                         {missingSummary.missing_dates.map((d) => (
-                          <span
+                          <button
                             key={d}
-                            className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] border border-[#EAE4DC] font-mono text-xs text-[#524C46]"
+                            onClick={() => {
+                              setContentTargetDate(d)
+                              setActiveTab('content')
+                            }}
+                            className="px-2 py-0.5 rounded-lg bg-[#FAF8F5] hover:bg-[#EFECE6] border border-[#EAE4DC] font-mono text-xs text-[#524C46] transition-colors cursor-pointer flex items-center gap-1 group"
+                            title="点击前往内容维护面板为此日期补录主图/时刻"
                           >
-                            {d}
-                          </span>
+                            <span>{d}</span>
+                            <span className="text-[10px] text-[#8C7A6B] group-hover:underline">前往补录 &rarr;</span>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -560,9 +593,9 @@ export const ManagementPage: React.FC = () => {
       {activeTab === 'settings' && config && (
         <div className="bg-white rounded-3xl border border-[#EAE7E1] p-8 max-w-2xl shadow-sm space-y-6">
           <div>
-            <h3 className="font-serif text-xl font-medium text-[#1A1918]">系统参数设置</h3>
+            <h3 className="font-serif text-xl font-medium text-[#1A1918]">系统参数与时光基准</h3>
             <p className="text-xs text-[#7D756E] mt-1">
-              更新原始照片目录或调整孩子出生日期。
+              设置相册照片根目录，或配置生日、纪念日等纪年基准。
             </p>
           </div>
 
@@ -575,16 +608,52 @@ export const ManagementPage: React.FC = () => {
           <form onSubmit={handleSaveConfig} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-[#7D756E] mb-1">
-                孩子出生日期 (YYYY-MM-DD)
+                时光纪年基准类型
               </label>
-              <input
-                type="date"
-                value={birthDateInput}
-                onChange={(e) => setBirthDateInput(e.target.value)}
-                className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#DDD7CD] rounded-xl text-xs text-[#2C2A29]"
-                required
-              />
+              <select
+                value={baselineTypeInput}
+                onChange={(e) => setBaselineTypeInput(e.target.value)}
+                className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#DDD7CD] rounded-xl text-xs text-[#2C2A29] focus:outline-none focus:ring-1 focus:ring-[#8C7A6B]"
+              >
+                <option value="BIRTHDAY">生日（展示岁数、月份与天数，如 2 岁 3 个月 12 天）</option>
+                <option value="ANNIVERSARY">纪念日（如相恋/结婚纪念日，展示相伴天数与周年）</option>
+                <option value="START_DATE">记录起始日（展示记录开启第 N 天）</option>
+                <option value="CUSTOM">自定义里程碑（可自由指定前缀与天数）</option>
+                <option value="NONE">不启用基准日（仅展示自然日期）</option>
+              </select>
             </div>
+
+            {baselineTypeInput !== 'NONE' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-[#7D756E] mb-1">
+                    基准日期 (YYYY-MM-DD)
+                  </label>
+                  <input
+                    type="date"
+                    value={baselineDateInput}
+                    onChange={(e) => setBaselineDateInput(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#DDD7CD] rounded-xl text-xs text-[#2C2A29]"
+                    required
+                  />
+                </div>
+
+                {(baselineTypeInput === 'ANNIVERSARY' || baselineTypeInput === 'START_DATE' || baselineTypeInput === 'CUSTOM') && (
+                  <div>
+                    <label className="block text-xs font-medium text-[#7D756E] mb-1">
+                      自定义显示前缀 (可选)
+                    </label>
+                    <input
+                      type="text"
+                      value={baselineLabelInput}
+                      onChange={(e) => setBaselineLabelInput(e.target.value)}
+                      placeholder={baselineTypeInput === 'ANNIVERSARY' ? '相伴 / 领证' : baselineTypeInput === 'START_DATE' ? '记录 / 摄影挑战' : '来到新家'}
+                      className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#DDD7CD] rounded-xl text-xs text-[#2C2A29]"
+                    />
+                  </div>
+                )}
+              </>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-[#7D756E] mb-1">
@@ -603,7 +672,7 @@ export const ManagementPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={savingConfig}
-                className="px-6 py-2.5 rounded-xl bg-[#2C2622] text-white text-xs font-medium hover:bg-[#3D352F] disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl bg-[#2C2622] text-white text-xs font-medium hover:bg-[#3D352F] disabled:opacity-50 cursor-pointer"
               >
                 {savingConfig ? '正在保存...' : '保存更改'}
               </button>

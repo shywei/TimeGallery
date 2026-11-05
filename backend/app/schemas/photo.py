@@ -49,6 +49,8 @@ class PhotoDetailResponse(BaseModel):
     tags: List[TagResponse] = []
     collections: List[Dict[str, Any]] = []
     on_this_day_photos: List[OnThisDayPhotoItem] = []
+    has_moment: bool = False
+    moment: Optional[Dict[str, Any]] = None
     prev_photo_id: Optional[int] = None
     next_photo_id: Optional[int] = None
     prev_date: Optional[str] = None

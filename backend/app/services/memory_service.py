@@ -6,23 +6,43 @@ from sqlalchemy.orm import Session
 from backend.app.models.system_config import SystemSetting
 from backend.app.models.photo import Photo
 from backend.app.models.memory import MemoryDailySet
-from backend.app.services.age_service import calculate_age
+from backend.app.services.age_service import calculate_timeline_milestone, calculate_age
 from backend.app.core.time_utils import get_beijing_today, get_beijing_now_iso
 
 class MemoryService:
     def __init__(self, db: Session):
         self.db = db
-        birth_setting = db.query(SystemSetting).filter(SystemSetting.key == "birth_date").first()
-        self.birth_date = None
-        if birth_setting and birth_setting.value:
+        base_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_date").first()
+        if not base_setting or not base_setting.value:
+            base_setting = db.query(SystemSetting).filter(SystemSetting.key == "birth_date").first()
+
+        self.baseline_date = None
+        if base_setting and base_setting.value:
             try:
-                self.birth_date = date.fromisoformat(birth_setting.value)
+                self.baseline_date = date.fromisoformat(base_setting.value)
             except Exception:
                 pass
+        self.birth_date = self.baseline_date
+
+        type_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_type").first()
+        self.baseline_type = type_setting.value if type_setting and type_setting.value else "BIRTHDAY"
+
+        label_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_label").first()
+        self.baseline_label = label_setting.value if label_setting and label_setting.value else ""
+
+    def _get_milestone(self, target_date: date) -> Optional[Dict[str, Any]]:
+        if self.baseline_date and self.baseline_type != "NONE":
+            return calculate_timeline_milestone(
+                self.baseline_date,
+                target_date,
+                baseline_type=self.baseline_type,
+                custom_label=self.baseline_label
+            )
+        return None
 
     def _format_photo_memory(self, photo: Photo, memory_type: str, title: str, subtitle: str) -> Dict[str, Any]:
         p_date = date.fromisoformat(photo.photo_date)
-        age_info = calculate_age(self.birth_date, p_date) if self.birth_date else None
+        age_info = self._get_milestone(p_date)
 
         return {
             "memory_type": memory_type,
@@ -118,7 +138,7 @@ class MemoryService:
                     "type": "RANDOM_MEMORY",
                     "photo": p,
                     "title": "随机回忆",
-                    "subtitle": f"成长瞬间 · {p.photo_date}"
+                    "subtitle": f"时光瞬间 · {p.photo_date}"
                 })
                 selected_photo_ids.add(p.id)
 
@@ -129,7 +149,7 @@ class MemoryService:
                 memories.append({
                     "type": "RANDOM_MEMORY",
                     "photo": p,
-                    "title": "成长瞬间",
+                    "title": "珍藏瞬间",
                     "subtitle": f"记录于 {p.photo_date}"
                 })
 
@@ -158,7 +178,7 @@ class MemoryService:
             diff = today.year - int(photo_date_str[:4])
             return (f"{diff} 年前的今天" if diff > 0 else "历史上的今天", f"记录于 {photo_date_str}")
         else:
-            return ("随机回忆", f"成长瞬间 · {photo_date_str}")
+            return ("随机回忆", f"时光瞬间 · {photo_date_str}")
 
     def get_home_overview(self, today_date: Optional[date] = None) -> Dict[str, Any]:
         today = today_date or get_beijing_today()
@@ -166,10 +186,8 @@ class MemoryService:
         # 1. Total photos & recorded days
         total_photos = self.db.query(Photo).filter(Photo.status == "ACTIVE").count()
 
-        # 2. Current Age
-        current_age = None
-        if self.birth_date:
-            current_age = calculate_age(self.birth_date, today)
+        # 2. Current Milestone / Age
+        current_age = self._get_milestone(today)
 
         # 3. Hero Memories
         memories = self.get_or_create_daily_memories(today)
@@ -182,7 +200,7 @@ class MemoryService:
         recent_moments = []
         for p in recent_photos:
             p_d = date.fromisoformat(p.photo_date)
-            age_info = calculate_age(self.birth_date, p_d) if self.birth_date else None
+            age_info = self._get_milestone(p_d)
             recent_moments.append({
                 "id": p.id,
                 "photo_date": p.photo_date,

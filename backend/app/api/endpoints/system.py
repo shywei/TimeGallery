@@ -47,13 +47,19 @@ def get_system_status(db: Session = Depends(get_db)):
 def get_system_config(db: Session = Depends(get_db)):
     first_setup = get_setting(db, "first_setup_completed", "false").lower() == "true"
     birth_date = get_setting(db, "birth_date", settings.birth_date)
+    baseline_type = get_setting(db, "baseline_type", settings.baseline_type or "BIRTHDAY")
+    baseline_date = get_setting(db, "baseline_date", settings.baseline_date or birth_date)
+    baseline_label = get_setting(db, "baseline_label", settings.baseline_label)
     photo_root = get_setting(db, "photo_root", settings.photo_root)
     thumb_size = int(get_setting(db, "thumbnail_size", str(settings.thumbnail_size)))
     prev_size = int(get_setting(db, "preview_size", str(settings.preview_size)))
 
     return SystemConfigResponse(
         app_name=settings.app_name,
-        birth_date=birth_date or None,
+        birth_date=baseline_date or birth_date or None,
+        baseline_type=baseline_type,
+        baseline_date=baseline_date or birth_date or None,
+        baseline_label=baseline_label or None,
         photo_root=photo_root or None,
         data_root=str(settings.data_dir),
         thumbnail_size=thumb_size,
@@ -70,7 +76,14 @@ def setup_wizard(payload: SetupRequest, db: Session = Depends(get_db)):
             detail=f"Photo directory '{payload.photo_root}' does not exist or is not a directory."
         )
 
-    set_setting(db, "birth_date", payload.birth_date)
+    b_date = payload.baseline_date or payload.birth_date or ""
+    b_type = payload.baseline_type or "BIRTHDAY"
+    b_label = payload.baseline_label or ""
+
+    set_setting(db, "birth_date", b_date)
+    set_setting(db, "baseline_date", b_date)
+    set_setting(db, "baseline_type", b_type)
+    set_setting(db, "baseline_label", b_label)
     set_setting(db, "photo_root", str(photo_path.resolve()))
     set_setting(db, "first_setup_completed", "true")
 
@@ -87,8 +100,18 @@ def update_system_config(payload: SystemConfigUpdateRequest, db: Session = Depen
             )
         set_setting(db, "photo_root", str(p.resolve()))
 
-    if payload.birth_date is not None:
+    if payload.baseline_date is not None:
+        set_setting(db, "baseline_date", payload.baseline_date)
+        set_setting(db, "birth_date", payload.baseline_date)
+    elif payload.birth_date is not None:
+        set_setting(db, "baseline_date", payload.birth_date)
         set_setting(db, "birth_date", payload.birth_date)
+
+    if payload.baseline_type is not None:
+        set_setting(db, "baseline_type", payload.baseline_type)
+
+    if payload.baseline_label is not None:
+        set_setting(db, "baseline_label", payload.baseline_label)
 
     if payload.thumbnail_size is not None:
         set_setting(db, "thumbnail_size", str(payload.thumbnail_size))

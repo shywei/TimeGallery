@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import re
 from datetime import date, timedelta
 from backend.app.core.time_utils import get_beijing_today, get_beijing_now_iso
 from pathlib import Path
@@ -178,10 +179,16 @@ class PhotoScanner:
                 self.db.query(MemoryDailySet).delete()
                 self.db.commit()
 
-            # 1. Discover all candidate files in photo_root
+            # 1. Discover all candidate files in photo_root (excluding files inside 'yymmdd' moment subdirectories)
             candidate_files = []
             for path in photo_root.rglob("*"):
                 if path.is_file():
+                    try:
+                        rel = path.relative_to(photo_root)
+                        if any(re.fullmatch(r"\d{6}", part) for part in rel.parts[:-1]):
+                            continue
+                    except ValueError:
+                        pass
                     candidate_files.append(path)
 
             job.total_files = len(candidate_files)
@@ -400,6 +407,19 @@ class PhotoScanner:
             else:
                 job.message = f"增量扫描完成。处理 {job.processed_files} 个文件，成功归档 {job.success_count} 张。"
 
+            # 4. Scan Special Moments ('yymmdd' folders)
+            try:
+                from backend.app.services.moment_service import MomentScanner
+                m_scanner = MomentScanner(self.db)
+                m_result = m_scanner.scan_moments(photo_root)
+                logger.info(f"Moment scan completed: {m_result}")
+            except Exception as e:
+                logger.warning(f"Moment scan failed: {e}")
+                try:
+                    self.db.rollback()
+                except Exception:
+                    pass
+
             # Refresh today's memories so changes in archive are immediately visible on homepage
             today_iso = get_beijing_today().isoformat()
             self.db.query(MemoryDailySet).filter(MemoryDailySet.memory_date == today_iso).delete()
@@ -408,10 +428,17 @@ class PhotoScanner:
 
         except Exception as e:
             logger.exception("Scan job encountered fatal error")
+            try:
+                self.db.rollback()
+            except Exception:
+                pass
             job.status = "FAILED"
             job.message = f"Scan failed: {str(e)}"
             job.finished_at = get_beijing_now_iso()
-            self.db.commit()
+            try:
+                self.db.commit()
+            except Exception:
+                pass
 
         return job
 

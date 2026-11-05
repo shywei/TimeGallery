@@ -47,6 +47,13 @@ export interface PhotoDetail extends PhotoItem {
   tags: Tag[]
   collections: { id: number; name: string }[]
   on_this_day_photos?: OnThisDayPhotoItem[]
+  has_moment?: boolean
+  moment?: {
+    id: number
+    title: string
+    photo_count: number
+    video_count: number
+  } | null
   prev_photo_id?: number | null
   next_photo_id?: number | null
   prev_date?: string | null

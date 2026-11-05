@@ -59,6 +59,17 @@ def test_list_and_filter_photos(photo_client):
     assert res_year.status_code == 200
     assert res_year.json()["total"] == 2
 
+    # Backend search query
+    res_search = photo_client.get("/api/photos?search=0501")
+    assert res_search.status_code == 200
+    assert res_search.json()["total"] == 1
+    assert res_search.json()["items"][0]["photo_date"] == "2024-05-01"
+
+    # Years endpoint
+    res_years = photo_client.get("/api/photos/years")
+    assert res_years.status_code == 200
+    assert "2024" in res_years.json()
+
     res_empty = photo_client.get("/api/photos?year=2025")
     assert res_empty.status_code == 200
     assert res_empty.json()["total"] == 0

@@ -6,7 +6,9 @@ interface SetupWizardPageProps {
 }
 
 export const SetupWizardPage: React.FC<SetupWizardPageProps> = ({ onSetupComplete }) => {
-  const [birthDate, setBirthDate] = useState('')
+  const [baselineType, setBaselineType] = useState('BIRTHDAY')
+  const [baselineDate, setBaselineDate] = useState('')
+  const [baselineLabel, setBaselineLabel] = useState('')
   const [photoRoot, setPhotoRoot] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,8 +19,8 @@ export const SetupWizardPage: React.FC<SetupWizardPageProps> = ({ onSetupComplet
     e.preventDefault()
     setError(null)
 
-    if (!birthDate) {
-      setError('请选择或输入孩子的出生日期')
+    if (baselineType !== 'NONE' && !baselineDate) {
+      setError('请选择或输入基准日期')
       return
     }
 
@@ -35,7 +37,10 @@ export const SetupWizardPage: React.FC<SetupWizardPageProps> = ({ onSetupComplet
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          birth_date: birthDate,
+          baseline_type: baselineType,
+          baseline_date: baselineDate || undefined,
+          baseline_label: baselineLabel || undefined,
+          birth_date: baselineDate || undefined,
           photo_root: photoRoot.trim()
         })
       })
@@ -75,10 +80,10 @@ export const SetupWizardPage: React.FC<SetupWizardPageProps> = ({ onSetupComplet
             <Sparkles className="w-3.5 h-3.5" /> 首次初始化向导
           </span>
           <h1 className="text-3xl font-serif text-[#1C1A19] font-medium tracking-tight">
-            欢迎来到 Growing Up
+            欢迎来到 拾光记
           </h1>
           <p className="text-sm text-[#7D756E] mt-2 max-w-md mx-auto leading-relaxed">
-            让我们为孩子建立专属的数字成长时光档案。请配置基础信息以开始归档。
+            为您与珍爱的人建立专属时光画册。请配置基础信息以开始归档。
           </p>
         </div>
 
@@ -96,27 +101,63 @@ export const SetupWizardPage: React.FC<SetupWizardPageProps> = ({ onSetupComplet
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-xs uppercase font-medium text-[#7D756E] tracking-wider mb-2">
-                1. 孩子出生日期 (Birth Date)
+                1. 纪年基准类型 (Milestone Baseline)
               </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={birthDate}
-                  onChange={(e) => setBirthDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#FAF8F5] border border-[#E5E0D8] rounded-xl text-sm text-[#2C2A29] focus:outline-none focus:ring-2 focus:ring-[#8C7A6B]/30 focus:border-[#8C7A6B] transition-colors"
-                  placeholder="YYYY-MM-DD"
-                  required
-                />
-                <Calendar className="w-4 h-4 text-[#A8A199] absolute right-3.5 top-3.5 pointer-events-none" />
-              </div>
-              <p className="text-xs text-[#A8A199] mt-1.5">
-                用于精准计算照片拍摄时孩子的日历年龄（岁、月、天）。
-              </p>
+              <select
+                value={baselineType}
+                onChange={(e) => setBaselineType(e.target.value)}
+                className="w-full px-4 py-3 bg-[#FAF8F5] border border-[#E5E0D8] rounded-xl text-sm text-[#2C2A29] focus:outline-none focus:ring-2 focus:ring-[#8C7A6B]/30 focus:border-[#8C7A6B] transition-colors"
+              >
+                <option value="BIRTHDAY">生日（展示岁数、月份与天数，如 2 岁 3 个月 12 天）</option>
+                <option value="ANNIVERSARY">纪念日（如相恋/结婚纪念日，展示相伴天数与周年）</option>
+                <option value="START_DATE">记录起始日（展示记录开启第 N 天）</option>
+                <option value="CUSTOM">自定义里程碑（可自由指定前缀与天数）</option>
+                <option value="NONE">不启用基准日（仅展示自然日期）</option>
+              </select>
             </div>
+
+            {baselineType !== 'NONE' && (
+              <>
+                <div>
+                  <label className="block text-xs uppercase font-medium text-[#7D756E] tracking-wider mb-2">
+                    2. 基准日期 (Baseline Date)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={baselineDate}
+                      onChange={(e) => setBaselineDate(e.target.value)}
+                      className="w-full px-4 py-3 bg-[#FAF8F5] border border-[#E5E0D8] rounded-xl text-sm text-[#2C2A29] focus:outline-none focus:ring-2 focus:ring-[#8C7A6B]/30 focus:border-[#8C7A6B] transition-colors"
+                      placeholder="YYYY-MM-DD"
+                      required
+                    />
+                    <Calendar className="w-4 h-4 text-[#A8A199] absolute right-3.5 top-3.5 pointer-events-none" />
+                  </div>
+                  <p className="text-xs text-[#A8A199] mt-1.5">
+                    用于精准计算照片拍摄时的相对时间跨度与岁月里程碑。
+                  </p>
+                </div>
+
+                {(baselineType === 'ANNIVERSARY' || baselineType === 'START_DATE' || baselineType === 'CUSTOM') && (
+                  <div>
+                    <label className="block text-xs uppercase font-medium text-[#7D756E] tracking-wider mb-2">
+                      自定义显示前缀 (可选)
+                    </label>
+                    <input
+                      type="text"
+                      value={baselineLabel}
+                      onChange={(e) => setBaselineLabel(e.target.value)}
+                      placeholder={baselineType === 'ANNIVERSARY' ? '相伴 / 领证' : baselineType === 'START_DATE' ? '记录' : '来到新家'}
+                      className="w-full px-4 py-3 bg-[#FAF8F5] border border-[#E5E0D8] rounded-xl text-sm text-[#2C2A29] focus:outline-none focus:ring-2 focus:ring-[#8C7A6B]/30 focus:border-[#8C7A6B] transition-colors"
+                    />
+                  </div>
+                )}
+              </>
+            )}
 
             <div>
               <label className="block text-xs uppercase font-medium text-[#7D756E] tracking-wider mb-2">
-                2. 原始照片本地根目录 (Photo Root Directory)
+                {baselineType !== 'NONE' ? '3.' : '2.'} 原始照片本地根目录 (Photo Root Directory)
               </label>
               <div className="relative">
                 <input
@@ -165,7 +206,7 @@ export const SetupWizardPage: React.FC<SetupWizardPageProps> = ({ onSetupComplet
                 onClick={onSetupComplete}
                 className="py-3 px-8 rounded-xl bg-[#2C2622] text-white text-sm font-medium hover:bg-[#3D352F] transition-colors"
               >
-                进入时光档案
+                进入拾光记
               </button>
             </div>
           </div>

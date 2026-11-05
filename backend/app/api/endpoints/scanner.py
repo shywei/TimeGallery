@@ -22,6 +22,17 @@ def run_async_scan(job_id: int, scan_type: str):
     try:
         scanner = PhotoScanner(db)
         scanner.run_scan(scan_type=scan_type, job_id=job_id)
+    except Exception as e:
+        try:
+            db.rollback()
+            job = db.query(ScanJob).filter(ScanJob.id == job_id).first()
+            if job and job.status == "RUNNING":
+                job.status = "FAILED"
+                job.message = f"Scan failed: {str(e)}"
+                job.finished_at = get_beijing_now_iso()
+                db.commit()
+        except Exception:
+            pass
     finally:
         db.close()
 

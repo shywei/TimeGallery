@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from backend.app.models.system_config import SystemSetting
 from backend.app.models.photo import Photo
-from backend.app.services.age_service import calculate_age
+from backend.app.models.moment import Moment
+from backend.app.services.age_service import calculate_timeline_milestone, calculate_age
 from backend.app.services.filename_parser import parse_filename_date
 from backend.app.core.exceptions import InvalidDateError
 from backend.app.core.time_utils import get_beijing_today
@@ -34,13 +35,23 @@ def parse_flexible_date(date_str: str) -> date:
 class CalendarService:
     def __init__(self, db: Session):
         self.db = db
-        birth_setting = db.query(SystemSetting).filter(SystemSetting.key == "birth_date").first()
-        self.birth_date = None
-        if birth_setting and birth_setting.value:
+        base_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_date").first()
+        if not base_setting or not base_setting.value:
+            base_setting = db.query(SystemSetting).filter(SystemSetting.key == "birth_date").first()
+        
+        self.baseline_date = None
+        if base_setting and base_setting.value:
             try:
-                self.birth_date = date.fromisoformat(birth_setting.value)
+                self.baseline_date = date.fromisoformat(base_setting.value)
             except Exception:
                 pass
+        self.birth_date = self.baseline_date
+
+        type_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_type").first()
+        self.baseline_type = type_setting.value if type_setting and type_setting.value else "BIRTHDAY"
+
+        label_setting = db.query(SystemSetting).filter(SystemSetting.key == "baseline_label").first()
+        self.baseline_label = label_setting.value if label_setting and label_setting.value else ""
 
     def get_day_view(self, target_date: date) -> Dict[str, Any]:
         date_iso = target_date.isoformat()
@@ -52,9 +63,31 @@ class CalendarService:
         prev_date = (target_date - timedelta(days=1)).isoformat()
         next_date = (target_date + timedelta(days=1)).isoformat()
 
+        moment = self.db.query(Moment).filter(Moment.moment_date == date_iso).first()
+        moment_info = None
+        if moment:
+            cover_url = None
+            if moment.cover_media_id:
+                cover_url = f"/api/moments/media/{moment.cover_media_id}/thumbnail"
+            elif moment.media_items:
+                target_m = next((item for item in moment.media_items if item.media_type == "PHOTO"), moment.media_items[0])
+                cover_url = f"/api/moments/media/{target_m.id}/thumbnail"
+            moment_info = {
+                "id": moment.id,
+                "title": moment.title,
+                "photo_count": moment.photo_count,
+                "video_count": moment.video_count,
+                "cover_url": cover_url
+            }
+
         age_info = None
-        if self.birth_date:
-            age_info = calculate_age(self.birth_date, target_date)
+        if self.baseline_date and self.baseline_type != "NONE":
+            age_info = calculate_timeline_milestone(
+                self.baseline_date,
+                target_date,
+                baseline_type=self.baseline_type,
+                custom_label=self.baseline_label
+            )
 
         photo_data = None
         if photo:
@@ -76,6 +109,8 @@ class CalendarService:
             "date": date_iso,
             "has_photo": photo is not None,
             "photo": photo_data,
+            "has_moment": moment_info is not None,
+            "moment": moment_info,
             "age": age_info,
             "prev_date": prev_date,
             "next_date": next_date
@@ -96,12 +131,16 @@ class CalendarService:
         ).all()
         photos_by_date = {p.photo_date: p for p in photos}
 
+        moments = self.db.query(Moment).filter(Moment.moment_date.in_(date_strings)).all()
+        moments_by_date = {m.moment_date: m for m in moments}
+
         days = []
         recorded_count = 0
 
         for d in week_dates:
             d_iso = d.isoformat()
             p = photos_by_date.get(d_iso)
+            m = moments_by_date.get(d_iso)
             if p:
                 recorded_count += 1
                 photo_item = {
@@ -122,7 +161,15 @@ class CalendarService:
                 "day_of_week": d.weekday() + 1, # 1=Mon, 7=Sun
                 "is_today": d == get_beijing_today(),
                 "has_photo": photo_item is not None,
-                "photo": photo_item
+                "photo": photo_item,
+                "has_moment": m is not None,
+                "moment": {
+                    "id": m.id,
+                    "title": m.title,
+                    "photo_count": m.photo_count,
+                    "video_count": m.video_count,
+                    "cover_url": f"/api/moments/media/{m.cover_media_id}/thumbnail" if m.cover_media_id else (f"/api/moments/media/{m.media_items[0].id}/thumbnail" if m.media_items else None)
+                } if m else None
             })
 
         return {
@@ -152,6 +199,12 @@ class CalendarService:
         ).all()
         photos_by_date = {p.photo_date: p for p in photos}
 
+        moments = self.db.query(Moment).filter(
+            Moment.moment_date >= start_date_str,
+            Moment.moment_date <= end_date_str
+        ).all()
+        moments_by_date = {m.moment_date: m for m in moments}
+
         # Calculate grid with leading days from previous month
         days = []
 
@@ -169,7 +222,9 @@ class CalendarService:
                     "is_current_month": False,
                     "is_today": p_date == date.today(),
                     "has_photo": False,
-                    "photo": None
+                    "photo": None,
+                    "has_moment": False,
+                    "moment": None
                 })
 
         # Current month days
@@ -178,6 +233,7 @@ class CalendarService:
             d = date(year, month, day)
             d_iso = d.isoformat()
             p = photos_by_date.get(d_iso)
+            m = moments_by_date.get(d_iso)
             if p:
                 recorded_count += 1
                 photo_item = {
@@ -196,7 +252,15 @@ class CalendarService:
                 "is_current_month": True,
                 "is_today": d == get_beijing_today(),
                 "has_photo": photo_item is not None,
-                "photo": photo_item
+                "photo": photo_item,
+                "has_moment": m is not None,
+                "moment": {
+                    "id": m.id,
+                    "title": m.title,
+                    "photo_count": m.photo_count,
+                    "video_count": m.video_count,
+                    "cover_url": f"/api/moments/media/{m.cover_media_id}/thumbnail" if m.cover_media_id else (f"/api/moments/media/{m.media_items[0].id}/thumbnail" if m.media_items else None)
+                } if m else None
             })
 
         # Trailing padding to fill full 7-day row
@@ -213,7 +277,9 @@ class CalendarService:
                     "is_current_month": False,
                     "is_today": d == get_beijing_today(),
                     "has_photo": False,
-                    "photo": None
+                    "photo": None,
+                    "has_moment": False,
+                    "moment": None
                 })
 
         prev_y = year if month > 1 else year - 1
@@ -239,6 +305,9 @@ class CalendarService:
             Photo.status == "ACTIVE"
         ).order_by(Photo.photo_date.asc()).all()
 
+        moments = self.db.query(Moment).filter(Moment.moment_date.startswith(prefix)).all()
+        moments_by_date = {m.moment_date: m for m in moments}
+
         items = [
             {
                 "id": p.id,
@@ -249,10 +318,43 @@ class CalendarService:
                 "description": p.description,
                 "thumbnail_url": p.thumbnail_url,
                 "preview_url": p.preview_url,
-                "aspect_ratio": round(p.width / p.height, 3) if p.height > 0 else 1.0
+                "aspect_ratio": round(p.width / p.height, 3) if p.height > 0 else 1.0,
+                "has_moment": p.photo_date in moments_by_date,
+                "moment": {
+                    "id": moments_by_date[p.photo_date].id,
+                    "title": moments_by_date[p.photo_date].title,
+                    "photo_count": moments_by_date[p.photo_date].photo_count,
+                    "video_count": moments_by_date[p.photo_date].video_count,
+                    "cover_url": f"/api/moments/media/{moments_by_date[p.photo_date].cover_media_id}/thumbnail" if moments_by_date[p.photo_date].cover_media_id else None
+                } if p.photo_date in moments_by_date else None
             }
             for p in photos
         ]
+
+        # Also include any moments in this month that don't have a daily archive photo
+        photo_dates = {p.photo_date for p in photos}
+        for m in moments:
+            if m.moment_date not in photo_dates and m.cover_media_id:
+                items.append({
+                    "id": -(m.id),
+                    "photo_date": m.moment_date,
+                    "width": 1000,
+                    "height": 1000,
+                    "is_highlight": 0,
+                    "description": m.title or f"{m.moment_date} 特别时刻",
+                    "thumbnail_url": f"/api/moments/media/{m.cover_media_id}/thumbnail",
+                    "preview_url": f"/api/moments/media/{m.cover_media_id}/thumbnail",
+                    "aspect_ratio": 1.0,
+                    "has_moment": True,
+                    "moment": {
+                        "id": m.id,
+                        "title": m.title,
+                        "photo_count": m.photo_count,
+                        "video_count": m.video_count,
+                        "cover_url": f"/api/moments/media/{m.cover_media_id}/thumbnail"
+                    }
+                })
+        items.sort(key=lambda x: x["photo_date"])
 
         prev_y = year if month > 1 else year - 1
         prev_m = month - 1 if month > 1 else 12

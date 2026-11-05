@@ -4,6 +4,14 @@ export interface DayViewData {
   date: string
   has_photo: boolean
   photo: (PhotoItem & { original_url?: string; tags?: string[] }) | null
+  has_moment?: boolean
+  moment?: {
+    id: number
+    title: string
+    photo_count: number
+    video_count: number
+    cover_url?: string | null
+  } | null
   age: AgeInfo | null
   prev_date: string
   next_date: string
@@ -16,6 +24,14 @@ export interface WeekDayItem {
   is_today: boolean
   has_photo: boolean
   photo: PhotoItem | null
+  has_moment?: boolean
+  moment?: {
+    id: number
+    title: string
+    photo_count: number
+    video_count: number
+    cover_url?: string | null
+  } | null
 }
 
 export interface WeekViewData {
@@ -42,6 +58,14 @@ export interface MonthGridDayItem {
     preview_url: string
     is_highlight: number
   } | null
+  has_moment?: boolean
+  moment?: {
+    id: number
+    title: string
+    photo_count: number
+    video_count: number
+    cover_url?: string | null
+  } | null
 }
 
 export interface MonthCalendarData {
@@ -65,6 +89,14 @@ export interface PhotoWallItem {
   thumbnail_url: string
   preview_url: string
   aspect_ratio: number
+  has_moment?: boolean
+  moment?: {
+    id: number
+    title: string
+    photo_count: number
+    video_count: number
+    cover_url?: string | null
+  } | null
 }
 
 export interface MonthPhotoWallData {

@@ -56,7 +56,7 @@ export const TimelinePage: React.FC<TimelinePageProps> = ({ initialTag, onOpenPh
           时光河流
         </h1>
         <p className="text-xs text-[#7D756E] mt-2">
-          按时间倒序顺流而下，{selectedTag ? `当前筛选 #${selectedTag} 标签，共包含 ${total} 个瞬间。` : `共记载了 ${total} 个成长瞬间。`}
+          按时间倒序顺流而下，{selectedTag ? `当前筛选 #${selectedTag} 标签，共包含 ${total} 个瞬间。` : `共记载了 ${total} 个生活瞬间。`}
         </p>
       </div>
 

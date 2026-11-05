@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 DATA_DIR = BASE_DIR / "data"
 
 class Settings(BaseSettings):
-    app_name: str = "Growing Up"
+    app_name: str = "拾光记"
     app_version: str = "2.0.0"
     host: str = "127.0.0.1"
     port: int = 8765
@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     data_dir: Path = DATA_DIR
     photo_root: str = ""
     birth_date: str = ""
+    baseline_type: str = "BIRTHDAY"  # BIRTHDAY, ANNIVERSARY, START_DATE, CUSTOM, NONE
+    baseline_date: str = ""
+    baseline_label: str = ""
     
     # Image resolution settings
     thumbnail_size: int = 480

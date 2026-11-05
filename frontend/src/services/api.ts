@@ -3,6 +3,8 @@ import type { PhotoItem, PhotoDetail } from '../types/photo'
 import type { DayViewData, WeekViewData, MonthCalendarData, MonthPhotoWallData } from '../types/calendar'
 import type { CollectionItem, CollectionDetail } from '../types/collection'
 import type { ScanJob, ScanIssue, MissingDatesSummary } from '../types/scanner'
+import type { MomentItem, MomentDetail } from '../types/moment'
+import type { DayContentStatus, TrashStats } from '../types/content_mgmt'
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options)
@@ -27,16 +29,18 @@ export const api = {
   getHomeOverview: () => request<any>('/api/home/overview'),
 
   // Photos
-  getPhotos: (params?: { page?: number; page_size?: number; year?: number; month?: number; is_highlight?: boolean; tag_id?: number }) => {
-    const search = new URLSearchParams()
-    if (params?.page) search.set('page', params.page.toString())
-    if (params?.page_size) search.set('page_size', params.page_size.toString())
-    if (params?.year) search.set('year', params.year.toString())
-    if (params?.month) search.set('month', params.month.toString())
-    if (params?.is_highlight !== undefined) search.set('is_highlight', params.is_highlight.toString())
-    if (params?.tag_id) search.set('tag_id', params.tag_id.toString())
-    return request<{ total: number; page: number; page_size: number; items: PhotoItem[] }>(`/api/photos?${search.toString()}`)
+  getPhotos: (params?: { page?: number; page_size?: number; year?: number; month?: number; search?: string; is_highlight?: boolean; tag_id?: number }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.page) searchParams.set('page', params.page.toString())
+    if (params?.page_size) searchParams.set('page_size', params.page_size.toString())
+    if (params?.year) searchParams.set('year', params.year.toString())
+    if (params?.month) searchParams.set('month', params.month.toString())
+    if (params?.search) searchParams.set('search', params.search)
+    if (params?.is_highlight !== undefined) searchParams.set('is_highlight', params.is_highlight.toString())
+    if (params?.tag_id) searchParams.set('tag_id', params.tag_id.toString())
+    return request<{ total: number; page: number; page_size: number; items: PhotoItem[] }>(`/api/photos?${searchParams.toString()}`)
   },
+  getPhotoYears: () => request<string[]>('/api/photos/years'),
   getPhotoDetail: (id: number) => request<PhotoDetail>(`/api/photos/${id}`),
   updatePhotoMetadata: (id: number, data: { description?: string; is_highlight?: boolean; tags?: string[] }) =>
     request<PhotoDetail>(`/api/photos/${id}/metadata`, {
@@ -103,5 +107,54 @@ export const api = {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ filename })
   }),
-  exportJsonUrl: '/api/backup/export-json'
+  exportJsonUrl: '/api/backup/export-json',
+
+  // Moments (特别时刻)
+  getMoments: () => request<MomentItem[]>('/api/moments'),
+  getMomentDetail: (momentDateOrId: string | number) => request<MomentDetail>(`/api/moments/${momentDateOrId}`),
+  updateMoment: (momentDateOrId: string | number, payload: { title?: string; description?: string; cover_media_id?: number }) =>
+    request<{ id: number; moment_date: string; title: string; description?: string; cover_media_id?: number }>(
+      `/api/moments/${momentDateOrId}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }
+    ),
+
+  // Content Management (手动维护主图与特殊时刻 & 回收站)
+  getDayContentStatus: (dateStr: string) => request<DayContentStatus>(`/api/mgmt/content/day/${dateStr}`),
+  uploadDailyPhoto: (dateStr: string, file: File) => {
+    const formData = new FormData()
+    formData.append('date_str', dateStr)
+    formData.append('file', file)
+    return request<{ success: boolean; message: string; photo: any }>('/api/mgmt/content/daily-photo', {
+      method: 'POST',
+      body: formData
+    })
+  },
+  deleteDailyPhoto: (dateStr: string) => request<{ success: boolean; message: string }>(`/api/mgmt/content/daily-photo/${dateStr}`, {
+    method: 'DELETE'
+  }),
+  uploadMomentMedia: (dateStr: string, files: File[], title?: string, description?: string) => {
+    const formData = new FormData()
+    formData.append('date_str', dateStr)
+    if (title) formData.append('title', title)
+    if (description) formData.append('description', description)
+    files.forEach((f) => formData.append('files', f))
+    return request<{ success: boolean; message: string; moment_id: number; photo_count: number; video_count: number }>('/api/mgmt/content/moment-media', {
+      method: 'POST',
+      body: formData
+    })
+  },
+  deleteMomentMedia: (mediaId: number) => request<{ success: boolean; message: string }>(`/api/mgmt/content/moment-media/${mediaId}`, {
+    method: 'DELETE'
+  }),
+  deleteMoment: (dateStr: string) => request<{ success: boolean; message: string }>(`/api/mgmt/content/moment/${dateStr}`, {
+    method: 'DELETE'
+  }),
+  getTrashStats: () => request<TrashStats>('/api/mgmt/content/trash/stats'),
+  emptyTrash: () => request<{ freed_bytes: number; deleted_count: number; freed_display: string }>('/api/mgmt/content/trash/empty', {
+    method: 'POST'
+  })
 }

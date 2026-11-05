@@ -38,6 +38,7 @@ def init_db():
     import backend.app.models.scan_issue  # noqa
     import backend.app.models.system_config  # noqa
     import backend.app.models.memory  # noqa
+    import backend.app.models.moment  # noqa
     Base.metadata.create_all(bind=engine)
 
     # Lightweight migration check for existing SQLite databases

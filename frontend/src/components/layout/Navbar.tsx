@@ -1,7 +1,7 @@
 import React from 'react'
 import { Calendar as CalendarIcon, Clock, Sparkles, FolderHeart, ShieldCheck, Eye } from 'lucide-react'
 
-export type NavTab = 'home' | 'calendar' | 'timeline' | 'highlights' | 'collections' | 'management'
+export type NavTab = 'home' | 'calendar' | 'timeline' | 'highlights' | 'collections' | 'moments' | 'management'
 
 interface NavbarProps {
   currentTab: NavTab
@@ -25,10 +25,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="cursor-pointer group flex flex-col justify-center"
         >
           <span className="font-serif text-2xl font-medium tracking-tight text-[#1A1918] group-hover:text-[#52443B] transition-colors">
-            Growing Up
+            拾光记
           </span>
           <span className="text-[10px] uppercase tracking-widest text-[#8C827A] font-medium">
-            时光档案 · 数字成长杂志
+            时光画册 · 岁月记录
           </span>
         </div>
 
@@ -96,6 +96,19 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <FolderHeart className="w-3.5 h-3.5" />
             主题合集
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onSelectTab('moments')}
+            className={`px-4 py-2 rounded-full text-xs font-medium tracking-wide transition-all select-none cursor-pointer flex items-center gap-1.5 ${
+              currentTab === 'moments'
+                ? 'bg-[#2C2622] text-[#F7F5F0] shadow-sm'
+                : 'text-[#615A53] hover:text-[#1A1918] hover:bg-[#F0EDE6]'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+            特别时刻
           </button>
 
           {isManagementMode && (
