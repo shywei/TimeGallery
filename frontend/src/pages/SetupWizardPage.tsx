@@ -172,8 +172,9 @@ export const SetupWizardPage: React.FC<SetupWizardPageProps> = ({ onSetupComplet
               </div>
               <div className="text-xs text-[#8C827A] mt-2 space-y-1 bg-[#F5F2EC] p-3 rounded-lg border border-[#EAE5DC]">
                 <p className="font-medium text-[#5C534B]">★ 文件规范与安全保证：</p>
-                <p>• 照片文件必须采用六位数字 <code className="bg-white px-1.5 py-0.5 rounded border border-[#DDD7CD] text-[#2C2A29]">yymmdd.jpg</code> 命名（如 <code className="text-[#2C2A29]">241103.jpg</code> 代表 2024年11月03日）。</p>
-                <p>• 系统绝不会修改、压缩、重命名或删除您的原始照片，目录始终保持<strong>只读</strong>。</p>
+                <p>• 照片文件采用六位数字 <code className="bg-white px-1.5 py-0.5 rounded border border-[#DDD7CD] text-[#2C2A29]">yymmdd.jpg</code> 命名（如 <code className="text-[#2C2A29]">241103.jpg</code> 代表 2024年11月03日）。</p>
+                <p>• <strong>支持多硬盘/多盘符相册</strong>：在此配置首个目录，进入系统后可在管理设置中随时追加更多本地或移动硬盘目录。</p>
+                <p>• 日常浏览与扫描期间，原始照片目录始终保持<strong>只读</strong>，安全可靠。</p>
               </div>
             </div>
 

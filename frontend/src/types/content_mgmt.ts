@@ -3,6 +3,7 @@ export interface DailyPhotoMgmt {
   photo_date: string
   filename: string
   relative_path: string
+  root_path?: string
   file_size: number
   file_size_display: string
   width: number | null
@@ -21,6 +22,7 @@ export interface MomentMediaMgmt {
   media_type: 'PHOTO' | 'VIDEO'
   filename: string
   relative_path: string
+  root_path?: string
   file_size: number
   file_size_display: string
   thumbnail_url: string
@@ -33,6 +35,7 @@ export interface MomentMgmt {
   id: number | null
   moment_date: string
   folder_name: string
+  root_path?: string
   title: string | null
   description: string | null
   cover_media_id: number | null
@@ -50,6 +53,8 @@ export interface DayContentStatus {
   daily_photo: DailyPhotoMgmt | null
   has_moment: boolean
   moment: MomentMgmt | null
+  available_roots?: string[]
+  primary_root?: string
 }
 
 export interface TrashStats {

@@ -71,7 +71,7 @@ async def app_exception_handler(request: Request, exc: AppException):
 app.include_router(api_router)
 
 # Mount Frontend Dist & SPA Fallback
-frontend_dist = settings.base_dir / "frontend" / "dist"
+frontend_dist = settings.frontend_dist
 
 if frontend_dist.exists():
     app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")

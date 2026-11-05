@@ -10,6 +10,11 @@ from backend.app.schemas.system import (
     SetupRequest,
     SystemConfigUpdateRequest
 )
+from backend.app.services.storage_service import (
+    get_configured_photo_roots,
+    get_primary_photo_root,
+    set_configured_photo_roots
+)
 from pathlib import Path
 
 router = APIRouter(prefix="/system", tags=["System"])
@@ -30,7 +35,8 @@ def set_setting(db: Session, key: str, value: str):
 @router.get("/status", response_model=SystemStatusResponse)
 def get_system_status(db: Session = Depends(get_db)):
     first_setup = get_setting(db, "first_setup_completed", "false").lower() == "true"
-    photo_root = get_setting(db, "photo_root", settings.photo_root)
+    photo_roots = get_configured_photo_roots(db)
+    valid_roots = [p for p in photo_roots if p.exists() and p.is_dir()]
     photo_count = db.query(Photo).filter(Photo.status == "ACTIVE").count()
 
     return SystemStatusResponse(
@@ -40,7 +46,8 @@ def get_system_status(db: Session = Depends(get_db)):
         first_setup_completed=first_setup,
         photo_count=photo_count,
         days_recorded=photo_count,
-        photo_root_configured=bool(photo_root and Path(photo_root).exists())
+        photo_root_configured=len(valid_roots) > 0,
+        photo_roots_count=len(valid_roots)
     )
 
 @router.get("/config", response_model=SystemConfigResponse)
@@ -50,7 +57,10 @@ def get_system_config(db: Session = Depends(get_db)):
     baseline_type = get_setting(db, "baseline_type", settings.baseline_type or "BIRTHDAY")
     baseline_date = get_setting(db, "baseline_date", settings.baseline_date or birth_date)
     baseline_label = get_setting(db, "baseline_label", settings.baseline_label)
-    photo_root = get_setting(db, "photo_root", settings.photo_root)
+    
+    photo_roots = [str(p) for p in get_configured_photo_roots(db)]
+    primary_root = str(get_primary_photo_root(db)) if photo_roots else None
+    
     thumb_size = int(get_setting(db, "thumbnail_size", str(settings.thumbnail_size)))
     prev_size = int(get_setting(db, "preview_size", str(settings.preview_size)))
 
@@ -60,7 +70,9 @@ def get_system_config(db: Session = Depends(get_db)):
         baseline_type=baseline_type,
         baseline_date=baseline_date or birth_date or None,
         baseline_label=baseline_label or None,
-        photo_root=photo_root or None,
+        photo_root=primary_root,
+        photo_roots=photo_roots,
+        primary_photo_root=primary_root,
         data_root=str(settings.data_dir),
         thumbnail_size=thumb_size,
         preview_size=prev_size,
@@ -69,12 +81,14 @@ def get_system_config(db: Session = Depends(get_db)):
 
 @router.post("/setup")
 def setup_wizard(payload: SetupRequest, db: Session = Depends(get_db)):
-    photo_path = Path(payload.photo_root)
-    if not photo_path.exists() or not photo_path.is_dir():
+    roots = payload.photo_roots or ([payload.photo_root] if payload.photo_root else [])
+    if not roots:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Photo directory '{payload.photo_root}' does not exist or is not a directory."
+            detail="必须提供至少一个相册根目录。"
         )
+
+    set_configured_photo_roots(db, roots, payload.primary_photo_root or payload.photo_root)
 
     b_date = payload.baseline_date or payload.birth_date or ""
     b_type = payload.baseline_type or "BIRTHDAY"
@@ -84,21 +98,19 @@ def setup_wizard(payload: SetupRequest, db: Session = Depends(get_db)):
     set_setting(db, "baseline_date", b_date)
     set_setting(db, "baseline_type", b_type)
     set_setting(db, "baseline_label", b_label)
-    set_setting(db, "photo_root", str(photo_path.resolve()))
     set_setting(db, "first_setup_completed", "true")
 
     return {"message": "Setup completed successfully."}
 
 @router.put("/config")
 def update_system_config(payload: SystemConfigUpdateRequest, db: Session = Depends(get_db)):
-    if payload.photo_root is not None:
-        p = Path(payload.photo_root)
-        if not p.exists() or not p.is_dir():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Photo directory '{payload.photo_root}' is invalid."
-            )
-        set_setting(db, "photo_root", str(p.resolve()))
+    if payload.photo_roots is not None:
+        set_configured_photo_roots(db, payload.photo_roots, payload.primary_photo_root)
+    elif payload.photo_root is not None:
+        set_configured_photo_roots(db, [payload.photo_root], payload.photo_root)
+    elif payload.primary_photo_root is not None:
+        current_roots = [str(p) for p in get_configured_photo_roots(db)]
+        set_configured_photo_roots(db, current_roots, payload.primary_photo_root)
 
     if payload.baseline_date is not None:
         set_setting(db, "baseline_date", payload.baseline_date)

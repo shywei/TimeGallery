@@ -19,17 +19,15 @@ from backend.app.services.moment_service import (
     get_moment_media_preview
 )
 
+from backend.app.services.storage_service import (
+    resolve_media_root,
+    get_primary_photo_root
+)
+
 router = APIRouter(prefix="/moments", tags=["Moments"])
 
 def get_photo_root(db: Session) -> Path:
-    s = db.query(SystemSetting).filter(SystemSetting.key == "photo_root").first()
-    root_str = s.value if s else settings.photo_root
-    if not root_str:
-        raise HTTPException(status_code=400, detail="Photo root is not configured.")
-    p = Path(root_str).resolve()
-    if not p.exists():
-        raise HTTPException(status_code=404, detail="Photo root does not exist on disk.")
-    return p
+    return get_primary_photo_root(db)
 
 def get_baseline_info(db: Session) -> tuple[Optional[date], str, str]:
     s = db.query(SystemSetting).filter(SystemSetting.key == "baseline_date").first()
@@ -218,7 +216,7 @@ def get_media_thumbnail(media_id: int, db: Session = Depends(get_db)):
     if not media:
         raise HTTPException(status_code=404, detail="Media item not found.")
 
-    photo_root = get_photo_root(db)
+    photo_root = resolve_media_root(media, db)
     thumb_path = get_moment_media_thumbnail(media, photo_root)
     return FileResponse(thumb_path, media_type="image/webp")
 
@@ -230,7 +228,7 @@ def get_media_preview(media_id: int, db: Session = Depends(get_db)):
     if media.media_type != "PHOTO":
         raise HTTPException(status_code=400, detail="Preview only available for photos.")
 
-    photo_root = get_photo_root(db)
+    photo_root = resolve_media_root(media, db)
     prev_path = get_moment_media_preview(media, photo_root)
     return FileResponse(prev_path, media_type="image/webp")
 
@@ -240,7 +238,7 @@ def get_media_original(media_id: int, db: Session = Depends(get_db)):
     if not media:
         raise HTTPException(status_code=404, detail="Media item not found.")
 
-    photo_root = get_photo_root(db)
+    photo_root = resolve_media_root(media, db)
     orig_path = resolve_safe_path(photo_root, media.relative_path)
     if not orig_path.exists():
         raise HTTPException(status_code=404, detail="Original file not found on disk.")
@@ -260,7 +258,7 @@ def stream_video(media_id: int, request: Request, db: Session = Depends(get_db))
     if media.media_type != "VIDEO":
         raise HTTPException(status_code=400, detail="Streaming is only supported for video files.")
 
-    photo_root = get_photo_root(db)
+    photo_root = resolve_media_root(media, db)
     video_path = resolve_safe_path(photo_root, media.relative_path)
     if not video_path.exists():
         raise HTTPException(status_code=404, detail="Video file not found on disk.")

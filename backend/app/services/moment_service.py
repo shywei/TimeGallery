@@ -117,16 +117,26 @@ class MomentScanner:
     def __init__(self, db: Session):
         self.db = db
 
-    def scan_moments(self, photo_root: Path) -> Dict[str, Any]:
+    def scan_moments(self, photo_roots: Any) -> Dict[str, Any]:
         """
-        Discovers all 'yymmdd' directories in photo_root (root-level or subdirectories).
+        Discovers all 'yymmdd' directories in one or more photo roots (root-level or subdirectories).
         Syncs moments and moment_media records in the database.
         """
-        # Find all directories whose name is 6 digits 'yymmdd'
+        if isinstance(photo_roots, Path):
+            roots = [photo_roots]
+        elif isinstance(photo_roots, (list, tuple)):
+            roots = [Path(r) for r in photo_roots]
+        else:
+            roots = [Path(photo_roots)]
+
+        # Find all directories whose name is 6 digits 'yymmdd' across all roots
         candidate_dirs = []
-        for path in photo_root.rglob("*"):
-            if path.is_dir() and re.fullmatch(r"\d{6}", path.name):
-                candidate_dirs.append(path)
+        for root in roots:
+            if not root.exists() or not root.is_dir():
+                continue
+            for path in root.rglob("*"):
+                if path.is_dir() and re.fullmatch(r"\d{6}", path.name):
+                    candidate_dirs.append((path, root))
 
         found_moments_count = 0
         total_photos = 0
@@ -134,16 +144,18 @@ class MomentScanner:
 
         active_moment_ids = set()
 
-        for folder_path in candidate_dirs:
+        for folder_path, root in candidate_dirs:
             parsed_date = parse_folder_date(folder_path.name)
             if not parsed_date:
                 continue
 
             date_iso = parsed_date.isoformat()
             try:
-                rel_folder_path = folder_path.relative_to(photo_root).as_posix()
+                rel_folder_path = folder_path.relative_to(root).as_posix()
             except ValueError:
                 rel_folder_path = folder_path.name
+
+            root_str = str(root.resolve())
 
             # Find or create Moment record
             moment = self.db.query(Moment).filter(Moment.moment_date == date_iso).first()
@@ -152,6 +164,7 @@ class MomentScanner:
                     moment_date=date_iso,
                     folder_name=folder_path.name,
                     folder_rel_path=rel_folder_path,
+                    root_path=root_str,
                     title=f"{date_iso} 特别时刻"
                 )
                 self.db.add(moment)
@@ -159,6 +172,7 @@ class MomentScanner:
             else:
                 moment.folder_name = folder_path.name
                 moment.folder_rel_path = rel_folder_path
+                moment.root_path = root_str
                 moment.updated_at = datetime.utcnow()
 
             active_moment_ids.add(moment.id)
@@ -196,7 +210,7 @@ class MomentScanner:
                     video_count += 1
 
                 try:
-                    rel_media_path = file_path.relative_to(photo_root).as_posix()
+                    rel_media_path = file_path.relative_to(root).as_posix()
                 except ValueError:
                     rel_media_path = f"{rel_folder_path}/{filename}"
 
@@ -214,6 +228,7 @@ class MomentScanner:
                         media_type=media_type,
                         filename=filename,
                         relative_path=rel_media_path,
+                        root_path=root_str,
                         file_size=file_size,
                         file_mtime=file_mtime,
                         file_hash=f"{file_size}_{file_mtime}",
@@ -225,6 +240,7 @@ class MomentScanner:
                     # Update existing media
                     media_obj.filename = filename
                     media_obj.relative_path = rel_media_path
+                    media_obj.root_path = root_str
                     media_obj.file_size = file_size
                     media_obj.file_mtime = file_mtime
                     media_obj.file_hash = f"{file_size}_{file_mtime}"
@@ -256,7 +272,7 @@ class MomentScanner:
             if cover_candidate:
                 moment.cover_media_id = cover_candidate.id
                 try:
-                    get_moment_media_thumbnail(cover_candidate, photo_root)
+                    get_moment_media_thumbnail(cover_candidate, root)
                 except Exception as e:
                     pass
             else:

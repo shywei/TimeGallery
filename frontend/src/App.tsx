@@ -198,7 +198,7 @@ export default function App() {
 
             <div className="flex items-center gap-3">
               <span className="font-mono text-[11px] text-[#8C827A]">
-                {isManagementMode ? '● 管理模式运行中' : '○ 浏览模式'} · v2.0.0
+                {isManagementMode ? '● 管理模式运行中' : '○ 浏览模式'} · v1.0.0
               </span>
             </div>
           </div>

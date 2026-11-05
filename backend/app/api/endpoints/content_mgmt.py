@@ -19,6 +19,7 @@ def get_day_status(date_str: str, db: Session = Depends(get_db)):
 async def upload_daily_photo(
     date_str: str = Form(...),
     file: UploadFile = File(...),
+    target_root: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     """Upload or replace the daily main photo for a specific date."""
@@ -30,7 +31,7 @@ async def upload_daily_photo(
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
     service = ContentManagementService(db)
-    photo = service.save_daily_photo(date_str, content, file.filename)
+    photo = service.save_daily_photo(date_str, content, file.filename, target_root_str=target_root)
     return {
         "success": True,
         "message": f"{date_str} 每日主图已成功归档并生成缩略图",
@@ -60,6 +61,7 @@ async def upload_moment_media(
     files: List[UploadFile] = File(...),
     title: Optional[str] = Form(None),
     description: Optional[str] = Form(None),
+    target_root: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     """Upload photos and/or videos to a special moment for a specific date."""
@@ -77,7 +79,7 @@ async def upload_moment_media(
         raise HTTPException(status_code=400, detail="All uploaded files are empty.")
 
     service = ContentManagementService(db)
-    moment = service.upload_moment_media(date_str, file_tuples, title, description)
+    moment = service.upload_moment_media(date_str, file_tuples, title, description, target_root_str=target_root)
     return {
         "success": True,
         "message": f"成功向 {date_str} 特别时刻添加了 {len(file_tuples)} 个媒体文件",

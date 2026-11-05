@@ -46,7 +46,9 @@ export const ManagementPage: React.FC = () => {
   const [baselineTypeInput, setBaselineTypeInput] = useState<string>('BIRTHDAY')
   const [baselineDateInput, setBaselineDateInput] = useState('')
   const [baselineLabelInput, setBaselineLabelInput] = useState('')
-  const [photoRootInput, setPhotoRootInput] = useState('')
+  const [photoRootsList, setPhotoRootsList] = useState<string[]>([])
+  const [primaryRootInput, setPrimaryRootInput] = useState<string>('')
+  const [newRootInput, setNewRootInput] = useState<string>('')
   const [configSuccess, setConfigSuccess] = useState(false)
 
   // Backup State
@@ -86,7 +88,9 @@ export const ManagementPage: React.FC = () => {
       setBaselineTypeInput(cfg.baseline_type || 'BIRTHDAY')
       setBaselineDateInput(cfg.baseline_date || cfg.birth_date || '')
       setBaselineLabelInput(cfg.baseline_label || '')
-      setPhotoRootInput(cfg.photo_root || '')
+      const roots = cfg.photo_roots && cfg.photo_roots.length > 0 ? cfg.photo_roots : (cfg.photo_root ? [cfg.photo_root] : [])
+      setPhotoRootsList(roots)
+      setPrimaryRootInput(cfg.primary_photo_root || roots[0] || '')
     })
   }
 
@@ -152,9 +156,38 @@ export const ManagementPage: React.FC = () => {
     }
   }
 
+  const handleAddRoot = () => {
+    const trimmed = newRootInput.trim()
+    if (!trimmed) return
+    if (photoRootsList.includes(trimmed)) {
+      alert('该目录已在列表中')
+      return
+    }
+    const updated = [...photoRootsList, trimmed]
+    setPhotoRootsList(updated)
+    if (!primaryRootInput) setPrimaryRootInput(trimmed)
+    setNewRootInput('')
+  }
+
+  const handleRemoveRoot = (target: string) => {
+    if (photoRootsList.length <= 1) {
+      alert('至少需保留一个相册目录')
+      return
+    }
+    const updated = photoRootsList.filter((r) => r !== target)
+    setPhotoRootsList(updated)
+    if (primaryRootInput === target) {
+      setPrimaryRootInput(updated[0])
+    }
+  }
+
   // Save Settings
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (photoRootsList.length === 0) {
+      alert('必须配置至少一个相册目录')
+      return
+    }
     setSavingConfig(true)
     setConfigSuccess(false)
     try {
@@ -163,7 +196,8 @@ export const ManagementPage: React.FC = () => {
         baseline_date: baselineTypeInput !== 'NONE' ? (baselineDateInput.trim() || undefined) : undefined,
         baseline_label: baselineLabelInput.trim() || undefined,
         birth_date: baselineDateInput.trim() || undefined,
-        photo_root: photoRootInput.trim() || undefined
+        photo_roots: photoRootsList,
+        primary_photo_root: primaryRootInput || photoRootsList[0]
       })
       setConfigSuccess(true)
       fetchConfigData()
@@ -656,16 +690,80 @@ export const ManagementPage: React.FC = () => {
             )}
 
             <div>
-              <label className="block text-xs font-medium text-[#7D756E] mb-1">
-                原始照片本地根目录
-              </label>
-              <input
-                type="text"
-                value={photoRootInput}
-                onChange={(e) => setPhotoRootInput(e.target.value)}
-                className="w-full px-3 py-2 bg-[#FAF8F5] border border-[#DDD7CD] rounded-xl text-xs text-[#2C2A29] font-mono"
-                required
-              />
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-xs font-medium text-[#7D756E]">
+                  原始照片本地存储目录 (支持多目录)
+                </label>
+                <span className="text-[11px] text-[#A8A199]">
+                  新照片默认写入主目录，扫描时全目录聚合
+                </span>
+              </div>
+
+              {/* Roots List */}
+              <div className="space-y-2 mb-3">
+                {photoRootsList.map((rootPath) => {
+                  const isPrimary = rootPath === primaryRootInput
+                  return (
+                    <div
+                      key={rootPath}
+                      className="flex items-center justify-between p-3 rounded-xl bg-[#FAF8F5] border border-[#DDD7CD] text-xs"
+                    >
+                      <div className="flex items-center gap-2 overflow-hidden mr-2">
+                        <span className="font-mono text-[#2C2A29] truncate">{rootPath}</span>
+                        {isPrimary && (
+                          <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#EFECE6] text-[#6E6359] border border-[#DDD7CD]">
+                            主写入目录
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {!isPrimary && (
+                          <button
+                            type="button"
+                            onClick={() => setPrimaryRootInput(rootPath)}
+                            className="text-[11px] text-[#8C7A6B] hover:text-[#52443B] underline cursor-pointer"
+                          >
+                            设为主目录
+                          </button>
+                        )}
+                        {photoRootsList.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveRoot(rootPath)}
+                            className="text-[11px] text-red-500 hover:text-red-700 cursor-pointer"
+                          >
+                            移除
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Add Root Input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newRootInput}
+                  onChange={(e) => setNewRootInput(e.target.value)}
+                  placeholder="输入新相册绝对路径（如 E:\Photos 或 D:\OldPhotos）"
+                  className="flex-1 px-3 py-2 bg-[#FAF8F5] border border-[#DDD7CD] rounded-xl text-xs text-[#2C2A29] font-mono"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleAddRoot()
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddRoot}
+                  className="px-4 py-2 rounded-xl bg-[#F0EDE6] hover:bg-[#E5E0D8] text-xs font-medium text-[#4D453E] cursor-pointer"
+                >
+                  添加目录
+                </button>
+              </div>
             </div>
 
             <div className="pt-2 flex justify-end">

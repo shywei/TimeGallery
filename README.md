@@ -1,6 +1,7 @@
 # 拾光记 (TimeGallery) · 时光画册与岁月档案
 
 > 私有化家庭时光画册与岁月数字档案系统 (Windows 10 / 11)  
+> ⚠️ **安全说明**：专为家庭私有局域网设计，未设登录鉴权，**严禁直接暴露或映射至外网**  
 > 🔗 开源主页：[https://github.com/shywei/TimeGallery](https://github.com/shywei/TimeGallery)
 
 ---
@@ -41,6 +42,11 @@
 
 ## 🔒 核心数据安全与规则保证
 
+> [!WARNING]
+> **网络与访问安全声明（必读）**：  
+> 本系统定位为**纯私有化的个人与家庭局域网**数字档案系统。为了保证家庭成员在手机、平板与电视上的极简即用体验，**系统目前未设计用户登录认证与权限隔离机制**。  
+> **只建议在受信任的家庭局域网（如家庭 Wi-Fi）内使用，强烈不建议将本服务直接部署或映射到外网（如公网 IP 端口映射、DDNS、未鉴权的内网穿透工具等）**，以防家庭私密照片与档案内容遭到未经授权的访问、下载或篡改！
+
 1. **严格规范命名**：
    - 每日主图严格采用六位数字 `yymmdd.jpg`（如 `241103.jpg` 代表 2024年11月03日），年份固定按照 21 世纪计算（2000～2099）。
    - 特别时刻严格采用六位数字子文件夹 `yymmdd/`，支持存放不定张数的照片与常见格式视频。
@@ -55,35 +61,52 @@
 
 ---
 
-## 🚀 快速启动说明 (Windows)
+## 🚀 启动与运行方式
 
-### 方式一：一键启动 (推荐)
+### 方式一：下载绿色免安装包直接运行 (推荐普通用户 · 零环境依赖)
 
-直接双击运行根目录下的：
-```bat
-run.bat
-```
-`run.bat` 将自动检查 Python 环境，检查前端静态编译资源（若无则自动编译），并启动单端口服务。
+> **适用场景**：开箱即用，**完全无需在电脑上安装 Python、Node.js 或任何运行库**。
 
-启动后在浏览器打开：
-```text
-http://127.0.0.1:8765
-```
+1. 前往 Releases 下载绿色发行版压缩包：`TimeGallery-v1.0.0-win64.zip`。
+2. 解压到电脑任意目录（例如 `D:\TimeGallery`）。
+3. 直接双击运行目录下的 **`一键启动拾光记.bat`**（或进入 `TimeGallery` 文件夹双击 `TimeGallery.exe`）。
+4. 程序将自动在后台启动单端口服务，并自动呼出系统默认浏览器打开：
+   ```text
+   http://127.0.0.1:8765
+   ```
+5. 首次使用将进入向导页，指定您的照片相册目录即可开始自动索引（数据与日志均自动保存在程序同级 `data/` 目录中，换机迁移只需整体拷贝）。
 
-### 方式二：命令行服务管理
+---
 
-- **启动服务**：`scripts\start.bat`
-- **停止服务**：`scripts\stop.bat`（根据 8765 端口精准终止服务进程，不误杀其他 Python 进程）
-- **编译前端**：`scripts\build.bat`
-- **备份数据库**：`scripts\backup.bat`
-- **环境检查**：`scripts\check_environment.bat`
+### 方式二：从源码运行与二次开发 (开发者模式)
+
+> **适用场景**：需要修改代码、二次开发或定制功能。
+
+1. **环境要求**：
+   - Python 3.12+ (本项目推荐并支持 Python 3.13)
+   - Node.js 18+ (仅当修改前端源码时需要，运行预编译前端无需安装)
+
+2. **源码一键启动**：
+   直接双击运行根目录下的：
+   ```bat
+   run.bat
+   ```
+   `run.bat` 将自动检查 Python 环境，检查前端静态编译资源（若无则自动编译），并启动单端口服务。
+
+3. **常用运维与打包命令**：
+   - **打包独立安装包**：`scripts\package.bat`（一键生成不依赖 Python/Node 环境的免安装发行包与 ZIP 压缩包）
+   - **启动服务**：`scripts\start.bat`
+   - **停止服务**：`scripts\stop.bat`（根据 8765 端口精准终止服务进程，不误杀其他 Python 进程）
+   - **编译前端**：`scripts\build.bat`
+   - **备份数据库**：`scripts\backup.bat`
+   - **环境检查**：`scripts\check_environment.bat`
 
 ---
 
 ## 📖 详细文档指引
 
-- [安装与运行指南 (docs/INSTALL.md)](file:///D:/work/github/gallery/docs/INSTALL.md)
-- [用户使用手册 (docs/USER_GUIDE.md)](file:///D:/work/github/gallery/docs/USER_GUIDE.md)
+- [安装与运行指南 (docs/INSTALL.md)](file:///D:/work/github/gallery/docs/INSTALL.md)（含运行环境、局域网共享与 **Windows 独立可执行程序 (.exe) 打包指南**）
+- [用户使用手册 (docs/USER_GUIDE.md)](file:///D:/work/github/gallery/docs/USER_GUIDE.md)（含首页、相册大日历、特别时刻、合集画册与管理操作手册）
 
 ---
 

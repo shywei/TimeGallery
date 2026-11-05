@@ -22,6 +22,10 @@ from backend.app.services.filename_parser import (
     validate_date_range,
     SUPPORTED_EXTENSIONS
 )
+from backend.app.services.storage_service import (
+    get_configured_photo_roots,
+    get_primary_photo_root
+)
 from backend.app.core.exceptions import (
     InvalidFilenameError,
     InvalidDateError,
@@ -142,20 +146,13 @@ class PhotoScanner:
         job.status = "RUNNING"
         self.db.commit()
 
-        photo_root_str = self.get_setting("photo_root", settings.photo_root)
+        photo_roots = get_configured_photo_roots(self.db)
+        valid_roots = [p for p in photo_roots if p.exists() and p.is_dir()]
         birth_date_str = self.get_setting("birth_date", settings.birth_date)
 
-        if not photo_root_str:
+        if not valid_roots:
             job.status = "FAILED"
-            job.message = "Photo root directory is not configured."
-            job.finished_at = get_beijing_now_iso()
-            self.db.commit()
-            return job
-
-        photo_root = Path(photo_root_str).resolve()
-        if not photo_root.exists() or not photo_root.is_dir():
-            job.status = "FAILED"
-            job.message = f"Photo root directory '{photo_root}' does not exist or is not a directory."
+            job.message = "未配置有效的相册本地根目录或配置的目录不存在。"
             job.finished_at = get_beijing_now_iso()
             self.db.commit()
             return job
@@ -179,17 +176,21 @@ class PhotoScanner:
                 self.db.query(MemoryDailySet).delete()
                 self.db.commit()
 
-            # 1. Discover all candidate files in photo_root (excluding files inside 'yymmdd' moment subdirectories)
+            # 1. Discover all candidate files across all photo_roots (excluding files inside 'yymmdd' moment subdirectories and .trash)
             candidate_files = []
-            for path in photo_root.rglob("*"):
-                if path.is_file():
-                    try:
-                        rel = path.relative_to(photo_root)
-                        if any(re.fullmatch(r"\d{6}", part) for part in rel.parts[:-1]):
-                            continue
-                    except ValueError:
-                        pass
-                    candidate_files.append(path)
+            for root in valid_roots:
+                for path in root.rglob("*"):
+                    if path.is_file():
+                        try:
+                            rel = path.relative_to(root)
+                            # ignore hidden directories or .trash
+                            if any(part == ".trash" or part.startswith(".") for part in rel.parts):
+                                continue
+                            if any(re.fullmatch(r"\d{6}", part) for part in rel.parts[:-1]):
+                                continue
+                        except ValueError:
+                            pass
+                        candidate_files.append((path, root))
 
             job.total_files = len(candidate_files)
             job.processed_files = 0
@@ -200,12 +201,13 @@ class PhotoScanner:
 
             active_scanned_ids = set()
 
-            for file_path in candidate_files:
+            for file_path, root in candidate_files:
                 try:
-                    rel_path = file_path.relative_to(photo_root).as_posix()
+                    rel_path = file_path.relative_to(root).as_posix()
                 except ValueError:
                     rel_path = file_path.name
 
+                root_str = str(root.resolve())
                 filename = file_path.name
                 job.processed_files += 1
 
@@ -290,23 +292,25 @@ class PhotoScanner:
                 now_iso = get_beijing_now_iso()
 
                 if existing_date_photo:
-                    if existing_date_photo.relative_path == rel_path:
+                    existing_root = Path(existing_date_photo.root_path) if existing_date_photo.root_path else root
+                    if existing_date_photo.relative_path == rel_path and str(existing_root.resolve()) == root_str:
                         # Same file already indexed: update scan timestamp and status
                         existing_date_photo.status = "ACTIVE"
                         existing_date_photo.last_scanned_at = now_iso
                         existing_date_photo.file_size = file_size
                         existing_date_photo.sha256 = sha256
+                        existing_date_photo.root_path = root_str
                         existing_date_photo.width = img_info["width"]
                         existing_date_photo.height = img_info["height"]
                         existing_date_photo.mime_type = img_info["mime_type"]
                         active_scanned_ids.add(existing_date_photo.id)
                         job.success_count += 1
-                    elif not (photo_root / existing_date_photo.relative_path).exists():
-                        # Old file no longer exists: User replaced or renamed the photo file for this date!
-                        # Update record to new path and attributes while preserving user metadata (description, highlight, tags)
+                    elif not (existing_root / existing_date_photo.relative_path).exists():
+                        # Old file no longer exists: User replaced or moved the photo file for this date!
                         existing_date_photo.relative_path = rel_path
                         existing_date_photo.filename = filename
                         existing_date_photo.extension = ext
+                        existing_date_photo.root_path = root_str
                         existing_date_photo.status = "ACTIVE"
                         existing_date_photo.last_scanned_at = now_iso
                         existing_date_photo.file_size = file_size
@@ -318,7 +322,6 @@ class PhotoScanner:
                         job.success_count += 1
                     else:
                         # CONFLICT: A different file has the exact same date and both files exist on disk!
-                        # Rule: NEVER overwrite existing photo. Record DATE_CONFLICT issue.
                         self._create_issue(
                             job.id, "DATE_CONFLICT", filename, rel_path,
                             parsed_date=date_iso,
@@ -336,6 +339,7 @@ class PhotoScanner:
                         # Update date if moved/renamed within date
                         existing_path_photo.photo_date = date_iso
                         existing_path_photo.filename = filename
+                        existing_path_photo.root_path = root_str
                         existing_path_photo.status = "ACTIVE"
                         existing_path_photo.last_scanned_at = now_iso
                         active_scanned_ids.add(existing_path_photo.id)
@@ -346,6 +350,7 @@ class PhotoScanner:
                             photo_date=date_iso,
                             filename=filename,
                             relative_path=rel_path,
+                            root_path=root_str,
                             extension=ext,
                             file_size=file_size,
                             sha256=sha256,
@@ -371,7 +376,8 @@ class PhotoScanner:
             all_active = self.db.query(Photo).filter(Photo.status == "ACTIVE").all()
             for photo in all_active:
                 if photo.id not in active_scanned_ids:
-                    target_file = photo_root / photo.relative_path
+                    p_root = Path(photo.root_path) if photo.root_path else valid_roots[0]
+                    target_file = p_root / photo.relative_path
                     if not target_file.exists():
                         photo.status = "MISSING"
                         self._create_issue(
@@ -407,11 +413,11 @@ class PhotoScanner:
             else:
                 job.message = f"增量扫描完成。处理 {job.processed_files} 个文件，成功归档 {job.success_count} 张。"
 
-            # 4. Scan Special Moments ('yymmdd' folders)
+            # 4. Scan Special Moments ('yymmdd' folders) across all configured photo roots
             try:
                 from backend.app.services.moment_service import MomentScanner
                 m_scanner = MomentScanner(self.db)
-                m_result = m_scanner.scan_moments(photo_root)
+                m_result = m_scanner.scan_moments(valid_roots)
                 logger.info(f"Moment scan completed: {m_result}")
             except Exception as e:
                 logger.warning(f"Moment scan failed: {e}")

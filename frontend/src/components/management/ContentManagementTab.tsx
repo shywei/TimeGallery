@@ -48,6 +48,8 @@ export const ContentManagementTab: React.FC<ContentManagementTabProps> = ({ init
   const [momentTitle, setMomentTitle] = useState('')
   const [momentDesc, setMomentDesc] = useState('')
   const [uploadingMoment, setUploadingMoment] = useState(false)
+  const [selectedDailyRoot, setSelectedDailyRoot] = useState<string>('')
+  const [selectedMomentRoot, setSelectedMomentRoot] = useState<string>('')
   const momentFilesInputRef = useRef<HTMLInputElement>(null)
 
   // Status message / toast
@@ -69,6 +71,16 @@ export const ContentManagementTab: React.FC<ContentManagementTabProps> = ({ init
         } else {
           setMomentTitle('')
           setMomentDesc('')
+        }
+        if (data.daily_photo?.root_path) {
+          setSelectedDailyRoot(data.daily_photo.root_path)
+        } else if (data.primary_root) {
+          setSelectedDailyRoot(data.primary_root)
+        }
+        if (data.moment?.root_path) {
+          setSelectedMomentRoot(data.moment.root_path)
+        } else if (data.primary_root) {
+          setSelectedMomentRoot(data.primary_root)
         }
         setLoadingDay(false)
       })
@@ -104,7 +116,7 @@ export const ContentManagementTab: React.FC<ContentManagementTabProps> = ({ init
 
     setUploadingDaily(true)
     try {
-      const res = await api.uploadDailyPhoto(selectedDate, file)
+      const res = await api.uploadDailyPhoto(selectedDate, file, selectedDailyRoot || undefined)
       showFeedback('success', res.message || '每日主图保存成功！')
       fetchDayStatus(selectedDate)
       fetchTrashStats()
@@ -139,7 +151,13 @@ export const ContentManagementTab: React.FC<ContentManagementTabProps> = ({ init
     setUploadingMoment(true)
     try {
       const fileList = Array.from(files)
-      const res = await api.uploadMomentMedia(selectedDate, fileList, momentTitle, momentDesc)
+      const res = await api.uploadMomentMedia(
+        selectedDate,
+        fileList,
+        momentTitle,
+        momentDesc,
+        selectedMomentRoot || undefined
+      )
       showFeedback('success', res.message || '特别时刻媒体添加成功！')
       fetchDayStatus(selectedDate)
       fetchTrashStats()
@@ -343,6 +361,14 @@ export const ContentManagementTab: React.FC<ContentManagementTabProps> = ({ init
                         </strong>
                       </div>
                     )}
+                    {dayStatus.daily_photo.root_path && (
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span>所属目录:</span>
+                        <span className="font-mono text-[#1A1918] truncate max-w-[200px]" title={dayStatus.daily_photo.root_path}>
+                          {dayStatus.daily_photo.root_path}
+                        </span>
+                      </div>
+                    )}
                     {dayStatus.daily_photo.description && (
                       <div className="pt-1 border-t border-[#EAE5DC] text-[11px] italic">
                         "{dayStatus.daily_photo.description}"
@@ -362,36 +388,55 @@ export const ContentManagementTab: React.FC<ContentManagementTabProps> = ({ init
             </div>
 
             {/* Daily Photo Actions */}
-            <div className="pt-4 border-t border-[#F0ECE6] flex items-center justify-between gap-3">
-              <input
-                type="file"
-                ref={dailyFileInputRef}
-                onChange={handleDailyFileSelect}
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-              />
+            <div className="pt-4 border-t border-[#F0ECE6] space-y-3">
+              {dayStatus.available_roots && dayStatus.available_roots.length > 1 && (
+                <div className="flex items-center justify-between text-xs text-[#7D756E]">
+                  <span>目标存储盘:</span>
+                  <select
+                    value={selectedDailyRoot}
+                    onChange={(e) => setSelectedDailyRoot(e.target.value)}
+                    className="px-2 py-1 bg-[#FAF8F5] border border-[#DDD7CD] rounded-lg text-xs font-mono text-[#2C2A29] max-w-[240px] truncate"
+                  >
+                    {dayStatus.available_roots.map((r) => (
+                      <option key={r} value={r}>
+                        {r} {r === dayStatus.primary_root ? '(主)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <button
-                type="button"
-                onClick={() => dailyFileInputRef.current?.click()}
-                disabled={uploadingDaily}
-                className="px-4 py-2 rounded-xl bg-[#2C2622] text-white text-xs font-medium hover:bg-[#3D352F] transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
-              >
-                {uploadingDaily ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                <span>{dayStatus.has_daily_photo ? '替换为主图 (旧图移至回收站)' : '上传并归档此日主图'}</span>
-              </button>
+              <div className="flex items-center justify-between gap-3">
+                <input
+                  type="file"
+                  ref={dailyFileInputRef}
+                  onChange={handleDailyFileSelect}
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                />
 
-              {dayStatus.has_daily_photo && (
                 <button
                   type="button"
-                  onClick={handleDeleteDailyPhoto}
-                  className="px-3.5 py-2 rounded-xl text-xs text-red-600 hover:bg-red-50 border border-red-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-                  title="将主图移至回收站"
+                  onClick={() => dailyFileInputRef.current?.click()}
+                  disabled={uploadingDaily}
+                  className="px-4 py-2 rounded-xl bg-[#2C2622] text-white text-xs font-medium hover:bg-[#3D352F] transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>删除主图</span>
+                  {uploadingDaily ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  <span>{dayStatus.has_daily_photo ? '替换为主图 (旧图移至回收站)' : '上传并归档此日主图'}</span>
                 </button>
-              )}
+
+                {dayStatus.has_daily_photo && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteDailyPhoto}
+                    className="px-3.5 py-2 rounded-xl text-xs text-red-600 hover:bg-red-50 border border-red-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="将主图移至回收站"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>删除主图</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -490,37 +535,56 @@ export const ContentManagementTab: React.FC<ContentManagementTabProps> = ({ init
             </div>
 
             {/* Moment Actions */}
-            <div className="pt-4 border-t border-[#F0ECE6] flex items-center justify-between gap-3">
-              <input
-                type="file"
-                ref={momentFilesInputRef}
-                onChange={handleMomentFilesSelect}
-                multiple
-                accept="image/*,video/*"
-                className="hidden"
-              />
+            <div className="pt-4 border-t border-[#F0ECE6] space-y-3">
+              {dayStatus.available_roots && dayStatus.available_roots.length > 1 && (
+                <div className="flex items-center justify-between text-xs text-[#7D756E]">
+                  <span>目标存储盘:</span>
+                  <select
+                    value={selectedMomentRoot}
+                    onChange={(e) => setSelectedMomentRoot(e.target.value)}
+                    className="px-2 py-1 bg-[#FAF8F5] border border-[#DDD7CD] rounded-lg text-xs font-mono text-[#2C2A29] max-w-[240px] truncate"
+                  >
+                    {dayStatus.available_roots.map((r) => (
+                      <option key={r} value={r}>
+                        {r} {r === dayStatus.primary_root ? '(主)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <button
-                type="button"
-                onClick={() => momentFilesInputRef.current?.click()}
-                disabled={uploadingMoment}
-                className="px-4 py-2 rounded-xl bg-[#2C2622] text-white text-xs font-medium hover:bg-[#3D352F] transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
-              >
-                {uploadingMoment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                <span>{dayStatus.has_moment ? '追加照片/视频' : '创建并上传照片/视频'}</span>
-              </button>
+              <div className="flex items-center justify-between gap-3">
+                <input
+                  type="file"
+                  ref={momentFilesInputRef}
+                  onChange={handleMomentFilesSelect}
+                  multiple
+                  accept="image/*,video/*"
+                  className="hidden"
+                />
 
-              {dayStatus.has_moment && (
                 <button
                   type="button"
-                  onClick={handleDeleteEntireMoment}
-                  className="px-3.5 py-2 rounded-xl text-xs text-red-600 hover:bg-red-50 border border-red-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-                  title="解散并删除此特殊时刻文件夹"
+                  onClick={() => momentFilesInputRef.current?.click()}
+                  disabled={uploadingMoment}
+                  className="px-4 py-2 rounded-xl bg-[#2C2622] text-white text-xs font-medium hover:bg-[#3D352F] transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>解散时刻</span>
+                  {uploadingMoment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  <span>{dayStatus.has_moment ? '追加照片/视频' : '创建并上传照片/视频'}</span>
                 </button>
-              )}
+
+                {dayStatus.has_moment && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteEntireMoment}
+                    className="px-3.5 py-2 rounded-xl text-xs text-red-600 hover:bg-red-50 border border-red-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="解散并删除此特殊时刻文件夹"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>解散时刻</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -11,6 +11,11 @@ venv/
 *.egg-info/
 .pytest_cache/
 
+# PyInstaller Build & Dist
+build/
+dist/
+*.spec.bak
+
 # Node
 frontend/node_modules/
 node_modules/

@@ -51,3 +51,30 @@ def init_db():
                 conn.commit()
         except Exception:
             pass
+
+        try:
+            res = conn.exec_driver_sql("PRAGMA table_info(photos);").fetchall()
+            cols = [r[1] for r in res]
+            if "root_path" not in cols and cols:
+                conn.exec_driver_sql("ALTER TABLE photos ADD COLUMN root_path VARCHAR(500);")
+                conn.commit()
+        except Exception:
+            pass
+
+        try:
+            res = conn.exec_driver_sql("PRAGMA table_info(moments);").fetchall()
+            cols = [r[1] for r in res]
+            if "root_path" not in cols and cols:
+                conn.exec_driver_sql("ALTER TABLE moments ADD COLUMN root_path VARCHAR(500);")
+                conn.commit()
+        except Exception:
+            pass
+
+        try:
+            res = conn.exec_driver_sql("PRAGMA table_info(moment_media);").fetchall()
+            cols = [r[1] for r in res]
+            if "root_path" not in cols and cols:
+                conn.exec_driver_sql("ALTER TABLE moment_media ADD COLUMN root_path VARCHAR(500);")
+                conn.commit()
+        except Exception:
+            pass

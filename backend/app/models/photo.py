@@ -10,7 +10,8 @@ class Photo(Base):
     # The authoritative natural date of the photo, format: YYYY-MM-DD
     photo_date = Column(String(10), unique=True, nullable=False, index=True)
     filename = Column(String(255), nullable=False)
-    relative_path = Column(String(1024), unique=True, nullable=False)
+    relative_path = Column(String(1024), nullable=False)
+    root_path = Column(String(500), nullable=True)  # physical root directory where this photo is stored
     extension = Column(String(16), nullable=False)
     file_size = Column(Integer, nullable=False)
     sha256 = Column(String(64), nullable=False, index=True)

@@ -12,7 +12,8 @@ class Moment(Base):
     id = Column(Integer, primary_key=True, index=True)
     moment_date = Column(String(10), unique=True, index=True, nullable=False)  # 'YYYY-MM-DD'
     folder_name = Column(String(50), nullable=False)  # 'yymmdd' e.g. '241103'
-    folder_rel_path = Column(String(500), nullable=False)  # relative to photo_root
+    folder_rel_path = Column(String(500), nullable=False)  # relative to root_path
+    root_path = Column(String(500), nullable=True)  # physical root directory where this moment folder is stored
     title = Column(String(200), nullable=True)  # optional custom title, defaults to date
     description = Column(Text, nullable=True)  # optional story for this moment
     cover_media_id = Column(Integer, nullable=True)  # ID of cover media
@@ -35,6 +36,7 @@ class MomentMedia(Base):
     media_type = Column(String(10), nullable=False)  # 'PHOTO' or 'VIDEO'
     filename = Column(String(255), nullable=False)
     relative_path = Column(String(500), nullable=False)
+    root_path = Column(String(500), nullable=True)  # physical root directory where this media file is stored
     file_size = Column(Integer, default=0, nullable=False)
     file_mtime = Column(Integer, default=0, nullable=False)
     file_hash = Column(String(64), nullable=True)

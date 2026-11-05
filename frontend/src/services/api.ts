@@ -124,10 +124,11 @@ export const api = {
 
   // Content Management (手动维护主图与特殊时刻 & 回收站)
   getDayContentStatus: (dateStr: string) => request<DayContentStatus>(`/api/mgmt/content/day/${dateStr}`),
-  uploadDailyPhoto: (dateStr: string, file: File) => {
+  uploadDailyPhoto: (dateStr: string, file: File, targetRoot?: string) => {
     const formData = new FormData()
     formData.append('date_str', dateStr)
     formData.append('file', file)
+    if (targetRoot) formData.append('target_root', targetRoot)
     return request<{ success: boolean; message: string; photo: any }>('/api/mgmt/content/daily-photo', {
       method: 'POST',
       body: formData
@@ -136,11 +137,12 @@ export const api = {
   deleteDailyPhoto: (dateStr: string) => request<{ success: boolean; message: string }>(`/api/mgmt/content/daily-photo/${dateStr}`, {
     method: 'DELETE'
   }),
-  uploadMomentMedia: (dateStr: string, files: File[], title?: string, description?: string) => {
+  uploadMomentMedia: (dateStr: string, files: File[], title?: string, description?: string, targetRoot?: string) => {
     const formData = new FormData()
     formData.append('date_str', dateStr)
     if (title) formData.append('title', title)
     if (description) formData.append('description', description)
+    if (targetRoot) formData.append('target_root', targetRoot)
     files.forEach((f) => formData.append('files', f))
     return request<{ success: boolean; message: string; moment_id: number; photo_count: number; video_count: number }>('/api/mgmt/content/moment-media', {
       method: 'POST',

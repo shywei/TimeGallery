@@ -27,24 +27,16 @@ from backend.app.services.image_service import (
     get_or_create_preview
 )
 from backend.app.services.age_service import calculate_timeline_milestone, calculate_age
+from backend.app.services.storage_service import (
+    resolve_photo_root,
+    get_configured_photo_roots,
+    get_primary_photo_root
+)
 
 router = APIRouter(prefix="/photos", tags=["Photos"])
 
 def get_photo_root(db: Session) -> Path:
-    s = db.query(SystemSetting).filter(SystemSetting.key == "photo_root").first()
-    root_str = s.value if s else settings.photo_root
-    if not root_str:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Photo root directory is not configured in settings."
-        )
-    p = Path(root_str).resolve()
-    if not p.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Photo root directory '{root_str}' does not exist on disk."
-        )
-    return p
+    return get_primary_photo_root(db)
 
 @router.get("", response_model=PhotoListResponse)
 def list_photos(
@@ -284,7 +276,7 @@ def get_photo_thumbnail(
     if request and request.headers.get("if-none-match") == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED)
 
-    photo_root = get_photo_root(db)
+    photo_root = resolve_photo_root(photo, db)
     try:
         thumb_path = get_or_create_thumbnail(photo, photo_root)
         cache_control = "public, max-age=31536000, immutable" if v else "no-cache, must-revalidate"
@@ -311,7 +303,7 @@ def get_photo_preview(
     if request and request.headers.get("if-none-match") == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED)
 
-    photo_root = get_photo_root(db)
+    photo_root = resolve_photo_root(photo, db)
     try:
         prev_path = get_or_create_preview(photo, photo_root)
         cache_control = "public, max-age=31536000, immutable" if v else "no-cache, must-revalidate"
@@ -329,7 +321,7 @@ def get_photo_original(photo_id: int, db: Session = Depends(get_db)):
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found.")
 
-    photo_root = get_photo_root(db)
+    photo_root = resolve_photo_root(photo, db)
     try:
         orig_path = resolve_safe_path(photo_root, photo.relative_path)
         if not orig_path.exists():
