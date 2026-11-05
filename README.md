@@ -4,6 +4,10 @@
 > ⚠️ **安全说明**：专为家庭私有局域网设计，未设登录鉴权，**严禁直接暴露或映射至外网**  
 > 🔗 开源主页：[https://github.com/shywei/TimeGallery](https://github.com/shywei/TimeGallery)
 
+<p align="center">
+  <img src="recording.gif" alt="拾光记系统功能演示" width="100%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" />
+</p>
+
 ---
 
 ## 🌟 产品核心理念
